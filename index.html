@@ -144,29 +144,29 @@
   <canvas id="game-canvas" width="640" height="380"></canvas>
 
   <div id="controls">
-    <button id="btn-start"  onclick="Game.start()">Iniciar â–¶</button>
-    <button id="btn-pause"  onclick="Game.togglePause()" disabled>Pausar â¸</button>
-    <button id="btn-reset"  onclick="Game.reset()">Reiniciar â†º</button>
+    <button id="btn-start"  onclick="Game.start()">Iniciar</button>
+    <button id="btn-pause"  onclick="Game.togglePause()" disabled>Pausar</button>
+    <button id="btn-reset"  onclick="Game.reset()">Reiniciar</button>
     <button id="btn-mode"   onclick="Game.toggleMode()">2 Jogadores</button>
   </div>
 
-  <p class="hint" id="hint">W / S  â€”  mover raquete</p>
+  <p class="hint" id="hint">W / S  -  mover raquete</p>
   <p id="msg">Pressione Iniciar para jogar</p>
 
   <script>
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    //  PING PONG â€” cÃ³digo estruturado em mÃ³dulos
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─────────────────────────────────────────────────────
+    //  PING PONG — código estruturado em módulos
+    // ─────────────────────────────────────────────────────
 
     const Game = (() => {
 
-      // â”€â”€ Canvas setup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Canvas setup ────────────────────────────────────
       const canvas = document.getElementById('game-canvas');
       const ctx    = canvas.getContext('2d');
       const W = canvas.width;
       const H = canvas.height;
 
-      // â”€â”€ Constantes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Constantes ───────────────────────────────────────
       const PADDLE_W     = 10;
       const PADDLE_H     = 70;
       const PADDLE_SPEED = 5;
@@ -174,7 +174,7 @@
       const CPU_SPEED    = 3.8;
       const WINNING_SCORE = 7;
 
-      // â”€â”€ Estado global â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Estado global ────────────────────────────────────
       let running  = false;
       let paused   = false;
       let gameOver = false;
@@ -193,16 +193,16 @@
           if (labelLeft) labelLeft.textContent = 'JOGADOR';
           if (labelRight) labelRight.textContent = 'CPU';
           if (btnMode) btnMode.textContent = '2 Jogadores';
-          if (hintEl) hintEl.textContent = 'W / S  â€”  mover raquete';
+          if (hintEl) hintEl.textContent = 'W / S  -  mover raquete';
         } else {
           if (labelLeft) labelLeft.textContent = 'JOGADOR 1';
           if (labelRight) labelRight.textContent = 'JOGADOR 2';
           if (btnMode) btnMode.textContent = '1 Jogador';
-          if (hintEl) hintEl.textContent = 'P1: W/S  â€”  P2: â†‘/â†“';
+          if (hintEl) hintEl.textContent = 'P1: W/S  -  P2: setas';
         }
       }
 
-      // â”€â”€ Teclado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Teclado ─────────────────────────────────────────
       const keys = {};
       document.addEventListener('keydown', e => {
         keys[e.key] = true;
@@ -210,7 +210,7 @@
       });
       document.addEventListener('keyup', e => { keys[e.key] = false; });
 
-      // â”€â”€ InicializaÃ§Ã£o â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Inicialização ────────────────────────────────────
       function initState() {
         leftPaddle = {
           x: 18,
@@ -229,10 +229,10 @@
         updateScoreUI();
       }
 
-      // â”€â”€ LÃ³gica da bola â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Lógica da bola ───────────────────────────────────
       function spawnBall() {
         const angle = (Math.random() * 0.5 + 0.2) * (Math.random() < 0.5 ? 1 : -1);
-        const speed = 4.5;
+        const speed = 6.0;
         return {
           x:  W / 2,
           y:  H / 2,
@@ -246,29 +246,29 @@
         ball.x += ball.vx;
         ball.y += ball.vy;
 
-        // ColisÃ£o com paredes (topo/fundo)
+        // Colisão com paredes (topo/fundo)
         if (ball.y - ball.r <= 0)  { ball.y = ball.r;     ball.vy *= -1; }
         if (ball.y + ball.r >= H)  { ball.y = H - ball.r; ball.vy *= -1; }
 
-        // ColisÃ£o com paddle esquerdo (jogador)
+        // Colisão com paddle esquerdo (jogador)
         if (collidesAABB(ball, leftPaddle)) {
           ball.x = leftPaddle.x + leftPaddle.w + ball.r;
           reflectBall(ball, leftPaddle, +1);
         }
 
-        // ColisÃ£o com paddle direito (CPU)
+        // Colisão com paddle direito (CPU)
         if (collidesAABB(ball, rightPaddle)) {
           ball.x = rightPaddle.x - ball.r;
           reflectBall(ball, rightPaddle, -1);
         }
 
-        // Saiu pela esquerda â†’ ponto para CPU
+        // Saiu pela esquerda → ponto para CPU
         if (ball.x + ball.r < 0) {
           scores.right++;
           handlePoint(mode === 'cpu' ? 'CPU' : 'Jogador 2');
         }
 
-        // Saiu pela direita â†’ ponto para o jogador
+        // Saiu pela direita → ponto para o jogador
         if (ball.x - ball.r > W) {
           scores.left++;
           handlePoint(mode === 'cpu' ? 'Jogador' : 'Jogador 1');
@@ -277,7 +277,7 @@
 
       function reflectBall(b, paddle, direction) {
         const offset = (b.y - (paddle.y + paddle.h / 2)) / (paddle.h / 2);
-        const speed  = Math.min(Math.sqrt(b.vx ** 2 + b.vy ** 2) * 1.04, 14);
+        const speed  = Math.min(Math.sqrt(b.vx ** 2 + b.vy ** 2) * 1.04, 18);
         const angle  = offset * 0.85;
         b.vx = direction * Math.abs(speed * Math.cos(angle));
         b.vy = speed * Math.sin(angle);
@@ -290,7 +290,7 @@
                b.y + b.r > p.y;
       }
 
-      // â”€â”€ Paddles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Paddles ──────────────────────────────────────────
       function movePlayerPaddle() {
         if (keys['w'] || keys['W']) leftPaddle.y -= PADDLE_SPEED;
         if (keys['s'] || keys['S']) leftPaddle.y += PADDLE_SPEED;
@@ -310,7 +310,7 @@
         rightPaddle.y = clamp(rightPaddle.y, 0, H - PADDLE_H);
       }
 
-      // â”€â”€ PontuaÃ§Ã£o / vitÃ³ria â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Pontuação / vitória ──────────────────────────────
       function handlePoint(scorer) {
         updateScoreUI();
         if (scores.left >= WINNING_SCORE || scores.right >= WINNING_SCORE) {
@@ -323,12 +323,12 @@
       function endGame(winner) {
         gameOver = true;
         running  = false;
-        setMsg(`ðŸ† ${winner} venceu! Pressione Reiniciar para jogar novamente.`);
+        setMsg(`${winner} venceu! Pressione Reiniciar para jogar novamente.`);
         document.getElementById('btn-pause').disabled = true;
         document.getElementById('btn-start').disabled = true;
       }
 
-      // â”€â”€ RenderizaÃ§Ã£o â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Renderização ─────────────────────────────────────
       function drawBackground() {
         ctx.fillStyle = '#111';
         ctx.fillRect(0, 0, W, H);
@@ -378,7 +378,7 @@
         drawBall();
       }
 
-      // â”€â”€ Game loop â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Game loop ────────────────────────────────────────
       function loop() {
         if (!running || paused || gameOver) return;
         movePlayerPaddle();
@@ -389,7 +389,7 @@
         animId = requestAnimationFrame(loop);
       }
 
-      // â”€â”€ UtilitÃ¡rios â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Utilitários ──────────────────────────────────────
       function clamp(val, min, max) {
         return Math.max(min, Math.min(max, val));
       }
@@ -403,7 +403,7 @@
         document.getElementById('msg').textContent = text;
       }
 
-      // â”€â”€ API pÃºblica â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── API pública ──────────────────────────────────────
       function start() {
         if (gameOver || running) return;
         running = true;
@@ -412,7 +412,7 @@
         document.getElementById('btn-pause').disabled = false;
         setMsg(mode === 'cpu'
           ? 'Use W e S para mover. Boa sorte!'
-          : 'P1: W/S | P2: â†‘/â†“');
+          : 'P1: W/S | P2: setas');
         loop();
       }
 
@@ -420,9 +420,9 @@
         if (!running || gameOver) return;
         paused = !paused;
         const btn = document.getElementById('btn-pause');
-        btn.textContent = paused ? 'Continuar â–¶' : 'Pausar â¸';
+        btn.textContent = paused ? 'Continuar' : 'Pausar';
         if (!paused) { setMsg(''); loop(); }
-        else setMsg('â¸ Pausado');
+        else setMsg('Pausado');
       }
 
       function reset() {
@@ -434,7 +434,7 @@
         draw();
         document.getElementById('btn-start').disabled = false;
         document.getElementById('btn-pause').disabled = true;
-        document.getElementById('btn-pause').textContent = 'Pausar â¸';
+        document.getElementById('btn-pause').textContent = 'Pausar';
         setMsg('Pressione Iniciar para jogar');
       }
 
@@ -444,7 +444,7 @@
         updateModeUI();
       }
 
-      // â”€â”€ Boot â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Boot ─────────────────────────────────────────────
       initState();
       updateModeUI();
       draw();
@@ -695,8 +695,8 @@
   <div id="game-frame">
     <div id="center-col">
       <div class="paddle-controls hidden" id="p2-controls" aria-label="Controles do Jogador 2">
-        <div class="control-btn p2" id="btn-p2-left">â—€</div>
-        <div class="control-btn p2" id="btn-p2-right">â–¶</div>
+        <div class="control-btn p2" id="btn-p2-left">&lt;</div>
+        <div class="control-btn p2" id="btn-p2-right">&gt;</div>
       </div>
 
       <div id="field-row">
@@ -713,7 +713,7 @@
 
             <div id="start-menu">
               <h2>Escolha o modo</h2>
-              <p>O jogo comeÃ§a apÃ³s 3 segundos</p>
+              <p>O jogo começa após 3 segundos</p>
               <div class="menu-actions">
                 <button class="menu-btn" id="menu-1p">1 Jogador</button>
                 <button class="menu-btn" id="menu-2p">2 Jogadores</button>
@@ -729,35 +729,35 @@
       </div>
 
       <div class="paddle-controls" id="p1-controls" aria-label="Controles do Jogador 1">
-        <div class="control-btn" id="btn-p1-left">â—€</div>
-        <div class="control-btn" id="btn-p1-right">â–¶</div>
+        <div class="control-btn" id="btn-p1-left">&lt;</div>
+        <div class="control-btn" id="btn-p1-right">&gt;</div>
       </div>
     </div>
   </div>
 
   <div id="controls">
-    <button id="btn-menu" onclick="Game.openMenu()">Menu â˜°</button>
-    <button id="btn-pause" onclick="Game.togglePause()" disabled>Pausar â¸</button>
-    <button id="btn-reset" onclick="Game.reset()">Reiniciar â†º</button>
+    <button id="btn-menu" onclick="Game.openMenu()">Menu</button>
+    <button id="btn-pause" onclick="Game.togglePause()" disabled>Pausar</button>
+    <button id="btn-reset" onclick="Game.reset()">Reiniciar</button>
   </div>
 
-  <p class="hint" id="hint">Segure os botÃµes para mover a raquete</p>
-  <p id="msg">Escolha 1 Jogador ou 2 Jogadores para comeÃ§ar</p>
+  <p class="hint" id="hint">Segure os botões para mover a raquete</p>
+  <p id="msg">Escolha 1 Jogador ou 2 Jogadores para começar</p>
 
   <script>
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    //  PING PONG â€” cÃ³digo estruturado em mÃ³dulos
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─────────────────────────────────────────────────────
+    //  PING PONG — código estruturado em módulos
+    // ─────────────────────────────────────────────────────
 
     const Game = (() => {
 
-      // â”€â”€ Canvas setup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Canvas setup ────────────────────────────────────
       const canvas = document.getElementById('game-canvas');
       const ctx    = canvas.getContext('2d');
       const W = canvas.width;
       const H = canvas.height;
 
-      // â”€â”€ Constantes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Constantes ───────────────────────────────────────
       const PADDLE_W     = 70;
       const PADDLE_H     = 10;
       const PADDLE_SPEED = 5;
@@ -765,7 +765,7 @@
       const CPU_SPEED    = 3.8;
       const WINNING_SCORE = 7;
 
-      // â”€â”€ Estado global â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Estado global ────────────────────────────────────
       let running  = false;
       let paused   = false;
       let gameOver = false;
@@ -774,7 +774,7 @@
       let leftPaddle, rightPaddle, ball;
       let mode = 'cpu'; // 'cpu' | 'pvp'
 
-      // â”€â”€ Touch/Mobile controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Touch/Mobile controls ───────────────────────────
       const p1Keys = { left: false, right: false };
       const p2Keys = { left: false, right: false };
 
@@ -828,12 +828,12 @@
         if (mode === 'cpu') {
           if (labelLeft) labelLeft.textContent = 'CPU';
           if (labelRight) labelRight.textContent = 'JOGADOR';
-          if (hintEl) hintEl.textContent = 'P1: botÃµes de baixo (â—€ â–¶)';
+          if (hintEl) hintEl.textContent = 'P1: botões de baixo (< >)';
           if (p2Controls) p2Controls.classList.add('hidden');
         } else {
           if (labelLeft) labelLeft.textContent = 'JOGADOR 1';
           if (labelRight) labelRight.textContent = 'JOGADOR 2';
-          if (hintEl) hintEl.textContent = 'P1: botÃµes de baixo | P2: botÃµes de cima';
+          if (hintEl) hintEl.textContent = 'P1: botões de baixo | P2: botões de cima';
           if (p2Controls) p2Controls.classList.remove('hidden');
         }
       }
@@ -841,7 +841,7 @@
       if (menu1pBtn) menu1pBtn.addEventListener('click', () => startNewMatch('cpu'));
       if (menu2pBtn) menu2pBtn.addEventListener('click', () => startNewMatch('pvp'));
 
-      // â”€â”€ Teclado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Teclado ─────────────────────────────────────────
       const keys = {};
       document.addEventListener('keydown', e => {
         keys[e.key] = true;
@@ -849,7 +849,7 @@
       });
       document.addEventListener('keyup', e => { keys[e.key] = false; });
 
-      // â”€â”€ InicializaÃ§Ã£o â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Inicialização ────────────────────────────────────
       function initState(resetScore = true) {
         // Em modo retrato: CPU no topo, jogador embaixo
         rightPaddle = {
@@ -869,9 +869,9 @@
         updateScoreUI();
       }
 
-      // â”€â”€ LÃ³gica da bola â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Lógica da bola ───────────────────────────────────
       function spawnBall() {
-        const speed = 4.5;
+        const speed = 6.0;
         const direction = Math.random() < 0.5 ? 1 : -1;
         return {
           x:  W / 2,
@@ -915,23 +915,23 @@
         ball.x += ball.vx;
         ball.y += ball.vy;
 
-        // ColisÃ£o com paredes (esquerda/direita)
+        // Colisão com paredes (esquerda/direita)
         if (ball.x - ball.r <= 0)  { ball.x = ball.r;     ball.vx *= -1; }
         if (ball.x + ball.r >= W)  { ball.x = W - ball.r; ball.vx *= -1; }
 
-        // ColisÃ£o com paddle direito (CPU - topo)
+        // Colisão com paddle direito (CPU - topo)
         if (collidesAABB(ball, rightPaddle)) {
           ball.y = rightPaddle.y + rightPaddle.h + ball.r;
           reflectBall(ball, rightPaddle, +1);
         }
 
-        // ColisÃ£o com paddle esquerdo (jogador - baixo)
+        // Colisão com paddle esquerdo (jogador - baixo)
         if (collidesAABB(ball, leftPaddle)) {
           ball.y = leftPaddle.y - ball.r;
           reflectBall(ball, leftPaddle, -1);
         }
 
-        // Saiu pelo topo â†’ ponto para CPU
+        // Saiu pelo topo → ponto para CPU
         if (ball.y + ball.r < 0) {
           if (mode === 'cpu') {
             scores.right++;
@@ -942,7 +942,7 @@
           }
         }
 
-        // Saiu pelo fundo â†’ ponto para o jogador
+        // Saiu pelo fundo → ponto para o jogador
         if (ball.y - ball.r > H) {
           if (mode === 'cpu') {
             scores.left++;
@@ -956,7 +956,7 @@
 
       function reflectBall(b, paddle, direction) {
         const offset = (b.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2);
-        const speed  = Math.min(Math.sqrt(b.vx ** 2 + b.vy ** 2) * 1.04, 14);
+        const speed  = Math.min(Math.sqrt(b.vx ** 2 + b.vy ** 2) * 1.04, 18);
         const angle  = offset * 0.85;
         // Em modo retrato (paddles horizontais): varia o X pelo impacto e reflete no Y
         b.vx = speed * Math.sin(angle);
@@ -970,12 +970,12 @@
                b.y + b.r > p.y;
       }
 
-      // â”€â”€ Paddles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Paddles ──────────────────────────────────────────
       function movePlayerPaddle() {
         // Suporte a teclado (A/D para esquerda/direita)
         if (keys['a'] || keys['A'] || (mode === 'cpu' && keys['ArrowLeft'])) leftPaddle.x -= PADDLE_SPEED;
         if (keys['d'] || keys['D'] || (mode === 'cpu' && keys['ArrowRight'])) leftPaddle.x += PADDLE_SPEED;
-        // Suporte a botÃµes mobile
+        // Suporte a botões mobile
         if (p1Keys.left) leftPaddle.x -= PADDLE_SPEED;
         if (p1Keys.right) leftPaddle.x += PADDLE_SPEED;
         leftPaddle.x = clamp(leftPaddle.x, 0, W - PADDLE_W);
@@ -997,7 +997,7 @@
         rightPaddle.x = clamp(rightPaddle.x, 0, W - PADDLE_W);
       }
 
-      // â”€â”€ PontuaÃ§Ã£o / vitÃ³ria â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Pontuação / vitória ──────────────────────────────
       function handlePoint(scorer) {
         updateScoreUI();
         if (scores.left >= WINNING_SCORE || scores.right >= WINNING_SCORE) {
@@ -1010,14 +1010,14 @@
       function endGame(winner) {
         gameOver = true;
         running  = false;
-        setMsg(`ðŸ† ${winner} venceu! Toque Reiniciar para jogar novamente.`);
+        setMsg(`${winner} venceu! Toque Reiniciar para jogar novamente.`);
         if (pauseBtn) {
           pauseBtn.disabled = true;
-          pauseBtn.textContent = 'Pausar â¸';
+          pauseBtn.textContent = 'Pausar';
         }
       }
 
-      // â”€â”€ RenderizaÃ§Ã£o â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Renderização ─────────────────────────────────────
       function drawBackground() {
         ctx.fillStyle = '#111';
         ctx.fillRect(0, 0, W, H);
@@ -1068,7 +1068,7 @@
         drawBall();
       }
 
-      // â”€â”€ Game loop â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Game loop ────────────────────────────────────────
       function beginCountdown(seconds) {
         countdownUntil = performance.now() + seconds * 1000;
         lastCountdownShown = null;
@@ -1120,7 +1120,7 @@
         animId = requestAnimationFrame(loop);
       }
 
-      // â”€â”€ UtilitÃ¡rios â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Utilitários ──────────────────────────────────────
       function clamp(val, min, max) {
         return Math.max(min, Math.min(max, val));
       }
@@ -1134,7 +1134,7 @@
         document.getElementById('msg').textContent = text;
       }
 
-      // â”€â”€ API pÃºblica â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── API pública ──────────────────────────────────────
       function openMenu() {
         cancelAnimationFrame(animId);
         running  = false;
@@ -1153,9 +1153,9 @@
         }
         if (pauseBtn) {
           pauseBtn.disabled = true;
-          pauseBtn.textContent = 'Pausar â¸';
+          pauseBtn.textContent = 'Pausar';
         }
-        setMsg('Escolha 1 Jogador ou 2 Jogadores para comeÃ§ar');
+        setMsg('Escolha 1 Jogador ou 2 Jogadores para começar');
         draw();
       }
 
@@ -1171,7 +1171,7 @@
         if (startMenuEl) startMenuEl.classList.add('hidden');
         if (pauseBtn) {
           pauseBtn.disabled = true;
-          pauseBtn.textContent = 'Pausar â¸';
+          pauseBtn.textContent = 'Pausar';
         }
         beginCountdown(3);
         setMsg('Preparar...');
@@ -1183,16 +1183,16 @@
         if (!running || gameOver) return;
         paused = !paused;
         const btn = document.getElementById('btn-pause');
-        btn.textContent = paused ? 'Continuar â–¶' : 'Pausar â¸';
+        btn.textContent = paused ? 'Continuar' : 'Pausar';
         if (!paused) { setMsg(''); loop(); }
-        else setMsg('â¸ Pausado');
+        else setMsg('Pausado');
       }
 
       function reset() {
         startNewMatch(mode);
       }
 
-      // â”€â”€ Boot â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Boot ─────────────────────────────────────────────
       initState();
       updateModeUI();
       draw();
@@ -1217,7 +1217,7 @@
       const desktopSrc = (desktopStore?.value ?? '').trim();
       const mobileSrc = (mobileStore?.value ?? '').trim();
 
-      // Libera memÃ³ria depois de extrair o conteÃºdo.
+      // Libera memoria depois de extrair o conteudo.
       desktopStore?.remove();
       mobileStore?.remove();
 

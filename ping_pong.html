@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
@@ -99,13 +99,13 @@
   <canvas id="game-canvas" width="640" height="380"></canvas>
 
   <div id="controls">
-    <button id="btn-start"  onclick="Game.start()">Iniciar ▶</button>
-    <button id="btn-pause"  onclick="Game.togglePause()" disabled>Pausar ⏸</button>
-    <button id="btn-reset"  onclick="Game.reset()">Reiniciar ↺</button>
+    <button id="btn-start"  onclick="Game.start()">Iniciar</button>
+    <button id="btn-pause"  onclick="Game.togglePause()" disabled>Pausar</button>
+    <button id="btn-reset"  onclick="Game.reset()">Reiniciar</button>
     <button id="btn-mode"   onclick="Game.toggleMode()">2 Jogadores</button>
   </div>
 
-  <p class="hint" id="hint">W / S  —  mover raquete</p>
+  <p class="hint" id="hint">W / S  -  mover raquete</p>
   <p id="msg">Pressione Iniciar para jogar</p>
 
   <script>
@@ -148,12 +148,12 @@
           if (labelLeft) labelLeft.textContent = 'JOGADOR';
           if (labelRight) labelRight.textContent = 'CPU';
           if (btnMode) btnMode.textContent = '2 Jogadores';
-          if (hintEl) hintEl.textContent = 'W / S  —  mover raquete';
+          if (hintEl) hintEl.textContent = 'W / S  -  mover raquete';
         } else {
           if (labelLeft) labelLeft.textContent = 'JOGADOR 1';
           if (labelRight) labelRight.textContent = 'JOGADOR 2';
           if (btnMode) btnMode.textContent = '1 Jogador';
-          if (hintEl) hintEl.textContent = 'P1: W/S  —  P2: ↑/↓';
+          if (hintEl) hintEl.textContent = 'P1: W/S  -  P2: setas';
         }
       }
 
@@ -187,7 +187,7 @@
       // ── Lógica da bola ───────────────────────────────────
       function spawnBall() {
         const angle = (Math.random() * 0.5 + 0.2) * (Math.random() < 0.5 ? 1 : -1);
-        const speed = 4.5;
+        const speed = 6.0;
         return {
           x:  W / 2,
           y:  H / 2,
@@ -232,7 +232,7 @@
 
       function reflectBall(b, paddle, direction) {
         const offset = (b.y - (paddle.y + paddle.h / 2)) / (paddle.h / 2);
-        const speed  = Math.min(Math.sqrt(b.vx ** 2 + b.vy ** 2) * 1.04, 14);
+        const speed  = Math.min(Math.sqrt(b.vx ** 2 + b.vy ** 2) * 1.04, 18);
         const angle  = offset * 0.85;
         b.vx = direction * Math.abs(speed * Math.cos(angle));
         b.vy = speed * Math.sin(angle);
@@ -278,7 +278,7 @@
       function endGame(winner) {
         gameOver = true;
         running  = false;
-        setMsg(`🏆 ${winner} venceu! Pressione Reiniciar para jogar novamente.`);
+        setMsg(`${winner} venceu! Pressione Reiniciar para jogar novamente.`);
         document.getElementById('btn-pause').disabled = true;
         document.getElementById('btn-start').disabled = true;
       }
@@ -367,7 +367,7 @@
         document.getElementById('btn-pause').disabled = false;
         setMsg(mode === 'cpu'
           ? 'Use W e S para mover. Boa sorte!'
-          : 'P1: W/S | P2: ↑/↓');
+          : 'P1: W/S | P2: setas');
         loop();
       }
 
@@ -375,9 +375,9 @@
         if (!running || gameOver) return;
         paused = !paused;
         const btn = document.getElementById('btn-pause');
-        btn.textContent = paused ? 'Continuar ▶' : 'Pausar ⏸';
+        btn.textContent = paused ? 'Continuar' : 'Pausar';
         if (!paused) { setMsg(''); loop(); }
-        else setMsg('⏸ Pausado');
+        else setMsg('Pausado');
       }
 
       function reset() {
@@ -389,7 +389,7 @@
         draw();
         document.getElementById('btn-start').disabled = false;
         document.getElementById('btn-pause').disabled = true;
-        document.getElementById('btn-pause').textContent = 'Pausar ⏸';
+        document.getElementById('btn-pause').textContent = 'Pausar';
         setMsg('Pressione Iniciar para jogar');
       }
 
