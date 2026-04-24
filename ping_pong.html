@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ping Pong</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0d0d0d;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: 'Segoe UI', sans-serif;
+      color: #fff;
+    }
+
+    h1 {
+      font-size: 1.4rem;
+      font-weight: 500;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: #aaa;
+      margin-bottom: 1rem;
+    }
+
+    #scoreboard {
+      display: flex;
+      gap: 3rem;
+      margin-bottom: 1rem;
+      font-size: 2rem;
+      font-weight: 500;
+    }
+
+    .score-block { text-align: center; }
+    .score-label { font-size: 0.7rem; color: #555; letter-spacing: 2px; display: block; margin-bottom: 4px; }
+
+    #game-canvas {
+      border: 1px solid #222;
+      border-radius: 6px;
+      display: block;
+    }
+
+    #controls {
+      display: flex;
+      gap: 10px;
+      margin-top: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    button {
+      background: transparent;
+      color: #ccc;
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: 8px 20px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    button:hover:not(:disabled) { background: #1e1e1e; color: #fff; }
+    button:disabled { opacity: 0.35; cursor: default; }
+
+    #msg {
+      font-size: 0.8rem;
+      color: #555;
+      margin-top: 0.75rem;
+    }
+
+    .hint {
+      font-size: 0.72rem;
+      color: #3a3a3a;
+      margin-top: 0.4rem;
+      letter-spacing: 1px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Ping Pong</h1>
+
+  <div id="scoreboard">
+    <div class="score-block">
+      <span class="score-label" id="label-left">JOGADOR</span>
+      <span id="score-left">0</span>
+    </div>
+    <div style="color:#333; line-height:2.2;">:</div>
+    <div class="score-block">
+      <span class="score-label" id="label-right">CPU</span>
+      <span id="score-right">0</span>
+    </div>
+  </div>
+
+  <canvas id="game-canvas" width="640" height="380"></canvas>
+
+  <div id="controls">
+    <button id="btn-start"  onclick="Game.start()">Iniciar ▶</button>
+    <button id="btn-pause"  onclick="Game.togglePause()" disabled>Pausar ⏸</button>
+    <button id="btn-reset"  onclick="Game.reset()">Reiniciar ↺</button>
+    <button id="btn-mode"   onclick="Game.toggleMode()">2 Jogadores</button>
+  </div>
+
+  <p class="hint" id="hint">W / S  —  mover raquete</p>
+  <p id="msg">Pressione Iniciar para jogar</p>
+
+  <script>
+    // ─────────────────────────────────────────────────────
+    //  PING PONG — código estruturado em módulos
+    // ─────────────────────────────────────────────────────
+
+    const Game = (() => {
+
+      // ── Canvas setup ────────────────────────────────────
+      const canvas = document.getElementById('game-canvas');
+      const ctx    = canvas.getContext('2d');
+      const W = canvas.width;
+      const H = canvas.height;
+
+      // ── Constantes ───────────────────────────────────────
+      const PADDLE_W     = 10;
+      const PADDLE_H     = 70;
+      const PADDLE_SPEED = 5;
+      const BALL_RADIUS  = 9;
+      const CPU_SPEED    = 3.8;
+      const WINNING_SCORE = 7;
+
+      // ── Estado global ────────────────────────────────────
+      let running  = false;
+      let paused   = false;
+      let gameOver = false;
+      let animId   = null;
+      let scores   = { left: 0, right: 0 };
+      let leftPaddle, rightPaddle, ball;
+      let mode = 'cpu'; // 'cpu' | 'pvp'
+
+      const labelLeft = document.getElementById('label-left');
+      const labelRight = document.getElementById('label-right');
+      const hintEl = document.getElementById('hint');
+      const btnMode = document.getElementById('btn-mode');
+
+      function updateModeUI() {
+        if (mode === 'cpu') {
+          if (labelLeft) labelLeft.textContent = 'JOGADOR';
+          if (labelRight) labelRight.textContent = 'CPU';
+          if (btnMode) btnMode.textContent = '2 Jogadores';
+          if (hintEl) hintEl.textContent = 'W / S  —  mover raquete';
+        } else {
+          if (labelLeft) labelLeft.textContent = 'JOGADOR 1';
+          if (labelRight) labelRight.textContent = 'JOGADOR 2';
+          if (btnMode) btnMode.textContent = '1 Jogador';
+          if (hintEl) hintEl.textContent = 'P1: W/S  —  P2: ↑/↓';
+        }
+      }
+
+      // ── Teclado ─────────────────────────────────────────
+      const keys = {};
+      document.addEventListener('keydown', e => {
+        keys[e.key] = true;
+        if (['w','s','W','S','ArrowUp','ArrowDown'].includes(e.key)) e.preventDefault();
+      });
+      document.addEventListener('keyup', e => { keys[e.key] = false; });
+
+      // ── Inicialização ────────────────────────────────────
+      function initState() {
+        leftPaddle = {
+          x: 18,
+          y: H / 2 - PADDLE_H / 2,
+          w: PADDLE_W,
+          h: PADDLE_H
+        };
+        rightPaddle = {
+          x: W - 18 - PADDLE_W,
+          y: H / 2 - PADDLE_H / 2,
+          w: PADDLE_W,
+          h: PADDLE_H
+        };
+        scores = { left: 0, right: 0 };
+        ball = spawnBall();
+        updateScoreUI();
+      }
+
+      // ── Lógica da bola ───────────────────────────────────
+      function spawnBall() {
+        const angle = (Math.random() * 0.5 + 0.2) * (Math.random() < 0.5 ? 1 : -1);
+        const speed = 4.5;
+        return {
+          x:  W / 2,
+          y:  H / 2,
+          vx: speed * Math.cos(angle) * (Math.random() < 0.5 ? 1 : -1),
+          vy: speed * Math.sin(angle),
+          r:  BALL_RADIUS
+        };
+      }
+
+      function moveBall() {
+        ball.x += ball.vx;
+        ball.y += ball.vy;
+
+        // Colisão com paredes (topo/fundo)
+        if (ball.y - ball.r <= 0)  { ball.y = ball.r;     ball.vy *= -1; }
+        if (ball.y + ball.r >= H)  { ball.y = H - ball.r; ball.vy *= -1; }
+
+        // Colisão com paddle esquerdo (jogador)
+        if (collidesAABB(ball, leftPaddle)) {
+          ball.x = leftPaddle.x + leftPaddle.w + ball.r;
+          reflectBall(ball, leftPaddle, +1);
+        }
+
+        // Colisão com paddle direito (CPU)
+        if (collidesAABB(ball, rightPaddle)) {
+          ball.x = rightPaddle.x - ball.r;
+          reflectBall(ball, rightPaddle, -1);
+        }
+
+        // Saiu pela esquerda → ponto para CPU
+        if (ball.x + ball.r < 0) {
+          scores.right++;
+          handlePoint(mode === 'cpu' ? 'CPU' : 'Jogador 2');
+        }
+
+        // Saiu pela direita → ponto para o jogador
+        if (ball.x - ball.r > W) {
+          scores.left++;
+          handlePoint(mode === 'cpu' ? 'Jogador' : 'Jogador 1');
+        }
+      }
+
+      function reflectBall(b, paddle, direction) {
+        const offset = (b.y - (paddle.y + paddle.h / 2)) / (paddle.h / 2);
+        const speed  = Math.min(Math.sqrt(b.vx ** 2 + b.vy ** 2) * 1.04, 14);
+        const angle  = offset * 0.85;
+        b.vx = direction * Math.abs(speed * Math.cos(angle));
+        b.vy = speed * Math.sin(angle);
+      }
+
+      function collidesAABB(b, p) {
+        return b.x - b.r < p.x + p.w &&
+               b.x + b.r > p.x &&
+               b.y - b.r < p.y + p.h &&
+               b.y + b.r > p.y;
+      }
+
+      // ── Paddles ──────────────────────────────────────────
+      function movePlayerPaddle() {
+        if (keys['w'] || keys['W']) leftPaddle.y -= PADDLE_SPEED;
+        if (keys['s'] || keys['S']) leftPaddle.y += PADDLE_SPEED;
+        leftPaddle.y = clamp(leftPaddle.y, 0, H - PADDLE_H);
+      }
+
+      function movePlayer2Paddle() {
+        if (keys['ArrowUp']) rightPaddle.y -= PADDLE_SPEED;
+        if (keys['ArrowDown']) rightPaddle.y += PADDLE_SPEED;
+        rightPaddle.y = clamp(rightPaddle.y, 0, H - PADDLE_H);
+      }
+
+      function moveCPUPaddle() {
+        const center = rightPaddle.y + PADDLE_H / 2;
+        if (center < ball.y - 6) rightPaddle.y += CPU_SPEED;
+        else if (center > ball.y + 6) rightPaddle.y -= CPU_SPEED;
+        rightPaddle.y = clamp(rightPaddle.y, 0, H - PADDLE_H);
+      }
+
+      // ── Pontuação / vitória ──────────────────────────────
+      function handlePoint(scorer) {
+        updateScoreUI();
+        if (scores.left >= WINNING_SCORE || scores.right >= WINNING_SCORE) {
+          endGame(scorer);
+        } else {
+          ball = spawnBall();
+        }
+      }
+
+      function endGame(winner) {
+        gameOver = true;
+        running  = false;
+        setMsg(`🏆 ${winner} venceu! Pressione Reiniciar para jogar novamente.`);
+        document.getElementById('btn-pause').disabled = true;
+        document.getElementById('btn-start').disabled = true;
+      }
+
+      // ── Renderização ─────────────────────────────────────
+      function drawBackground() {
+        ctx.fillStyle = '#111';
+        ctx.fillRect(0, 0, W, H);
+
+        ctx.setLineDash([8, 8]);
+        ctx.strokeStyle = '#2a2a2a';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(W / 2, 0);
+        ctx.lineTo(W / 2, H);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      function drawPaddle(p, color) {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        const radius = 4;
+        if (typeof ctx.roundRect === 'function') {
+          ctx.roundRect(p.x, p.y, p.w, p.h, radius);
+        } else if (typeof ctx.arcTo === 'function') {
+          const r = Math.min(radius, p.w / 2, p.h / 2);
+          const x = p.x, y = p.y, w = p.w, h = p.h;
+          ctx.moveTo(x + r, y);
+          ctx.arcTo(x + w, y, x + w, y + h, r);
+          ctx.arcTo(x + w, y + h, x, y + h, r);
+          ctx.arcTo(x, y + h, x, y, r);
+          ctx.arcTo(x, y, x + w, y, r);
+          ctx.closePath();
+        } else {
+          ctx.rect(p.x, p.y, p.w, p.h);
+        }
+        ctx.fill();
+      }
+
+      function drawBall() {
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      function draw() {
+        drawBackground();
+        drawPaddle(leftPaddle,  '#60a5fa');
+        drawPaddle(rightPaddle, '#f87171');
+        drawBall();
+      }
+
+      // ── Game loop ────────────────────────────────────────
+      function loop() {
+        if (!running || paused || gameOver) return;
+        movePlayerPaddle();
+        if (mode === 'cpu') moveCPUPaddle();
+        else movePlayer2Paddle();
+        moveBall();
+        draw();
+        animId = requestAnimationFrame(loop);
+      }
+
+      // ── Utilitários ──────────────────────────────────────
+      function clamp(val, min, max) {
+        return Math.max(min, Math.min(max, val));
+      }
+
+      function updateScoreUI() {
+        document.getElementById('score-left').textContent  = scores.left;
+        document.getElementById('score-right').textContent = scores.right;
+      }
+
+      function setMsg(text) {
+        document.getElementById('msg').textContent = text;
+      }
+
+      // ── API pública ──────────────────────────────────────
+      function start() {
+        if (gameOver || running) return;
+        running = true;
+        paused  = false;
+        document.getElementById('btn-start').disabled = true;
+        document.getElementById('btn-pause').disabled = false;
+        setMsg(mode === 'cpu'
+          ? 'Use W e S para mover. Boa sorte!'
+          : 'P1: W/S | P2: ↑/↓');
+        loop();
+      }
+
+      function togglePause() {
+        if (!running || gameOver) return;
+        paused = !paused;
+        const btn = document.getElementById('btn-pause');
+        btn.textContent = paused ? 'Continuar ▶' : 'Pausar ⏸';
+        if (!paused) { setMsg(''); loop(); }
+        else setMsg('⏸ Pausado');
+      }
+
+      function reset() {
+        cancelAnimationFrame(animId);
+        running  = false;
+        paused   = false;
+        gameOver = false;
+        initState();
+        draw();
+        document.getElementById('btn-start').disabled = false;
+        document.getElementById('btn-pause').disabled = true;
+        document.getElementById('btn-pause').textContent = 'Pausar ⏸';
+        setMsg('Pressione Iniciar para jogar');
+      }
+
+      function toggleMode() {
+        mode = mode === 'cpu' ? 'pvp' : 'cpu';
+        reset();
+        updateModeUI();
+      }
+
+      // ── Boot ─────────────────────────────────────────────
+      initState();
+      updateModeUI();
+      draw();
+
+      return { start, togglePause, reset, toggleMode };
+
+    })();
+  </script>
+
+</body>
+</html>
