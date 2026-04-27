@@ -77,6 +77,46 @@
   <p id="msg">Escolha o modo de jogo</p>
 
   <script src="js/game-mobile.js"></script>
+  <script>
+    // Resize canvas to fit window
+    function resizeCanvas() {
+      const canvas = document.getElementById('game-canvas');
+      const field = document.getElementById('field');
+      const h1 = document.querySelector('h1');
+      const scoreRow = document.getElementById('score-row');
+      const controls = document.getElementById('controls');
+      const hints = document.querySelectorAll('.hint, #msg');
+      
+      // Aspect ratio original do canvas (ajustar conforme necessário)
+      const aspectRatio = 16 / 9; // ou ajuste para o ratio real
+      
+      const headerHeight = (h1?.offsetHeight || 40) + (scoreRow?.offsetHeight || 50);
+      const footerHeight = (controls?.offsetHeight || 40) + 30;
+      const availableHeight = window.innerHeight - headerHeight - footerHeight;
+      const availableWidth = window.innerWidth - 16;
+      
+      // Calcular tamanho máximo
+      let width = availableWidth;
+      let height = width / aspectRatio;
+      
+      if (height > availableHeight) {
+        height = availableHeight;
+        width = height * aspectRatio;
+      }
+      
+      // Usar CSS para redimensionar
+      field.style.width = width + 'px';
+      field.style.height = height + 'px';
+      
+      // Manter proporção do canvas
+      canvas.style.width = '100%';
+      canvas.style.height = '100%';
+    }
+    
+    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('load', resizeCanvas);
+    resizeCanvas();
+  </script>
 
 </body>
 </html>

@@ -59,6 +59,45 @@
   <p id="msg">Pressione Menu para começar</p>
 
   <script src="js/game-desktop.js"></script>
+  <script>
+    // Resize canvas to fit window
+    function resizeCanvas() {
+      const container = document.getElementById('game-container');
+      const canvas = document.getElementById('game-canvas');
+      
+      // Aspect ratio original: 1096 x 610 = 1.797
+      const aspectRatio = 1096 / 610;
+      
+      // Calcular dimensões disponíveis (levando em conta título, placar e controles)
+      const header = document.querySelector('h1');
+      const scoreboard = document.getElementById('scoreboard');
+      const controls = document.getElementById('controls');
+      const hints = document.querySelectorAll('.hint, #msg');
+      
+      const headerHeight = (header?.offsetHeight || 50) + (scoreboard?.offsetHeight || 40);
+      const footerHeight = (controls?.offsetHeight || 40) + 40; // hints + spacing
+      const availableHeight = window.innerHeight - headerHeight - footerHeight - 20;
+      const availableWidth = window.innerWidth - 40;
+      
+      // Calcular tamanho máximo mantendo aspect ratio
+      let width = availableWidth;
+      let height = width / aspectRatio;
+      
+      if (height > availableHeight) {
+        height = availableHeight;
+        width = height * aspectRatio;
+      }
+      
+      canvas.width = 1096;
+      canvas.height = 610;
+      container.style.width = width + 'px';
+      container.style.height = height + 'px';
+    }
+    
+    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('load', resizeCanvas);
+    resizeCanvas();
+  </script>
 
 </body>
 </html>
