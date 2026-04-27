@@ -1,0 +1,287 @@
+/* ─────────────────────────────────────────────────────
+   Ping Pong — Estilos Mobile
+   ───────────────────────────────────────────────────── */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: #0d0d0d;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  font-family: 'Segoe UI', sans-serif;
+  color: #fff;
+}
+
+/* ─ Títulos ─ */
+h1 {
+  font-size: 1.4rem;
+  font-weight: 500;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: #aaa;
+  margin-bottom: 1rem;
+}
+
+/* ─ Layout principal ─ */
+#game-frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+#center-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+#field-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ─ Placar (topo) ─ */
+#score-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 14px;
+  user-select: none;
+}
+
+.score-sep {
+  color: #333;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.side-score {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.score-label {
+  font-size: 0.65rem;
+  color: #555;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.score {
+  font-size: 2.1rem;
+  font-weight: 600;
+  color: #e5e7eb;
+  line-height: 1;
+}
+
+/* ─ Campo e overlay ─ */
+#field {
+  position: relative;
+  display: inline-block;
+}
+
+#overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+#countdown {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 5rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 2px;
+  text-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+}
+
+#start-menu {
+  pointer-events: auto;
+  background: rgba(10, 10, 10, 0.88);
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 18px;
+  width: min(320px, 92%);
+  text-align: center;
+  backdrop-filter: blur(6px);
+}
+
+#start-menu h2 {
+  font-size: 1rem;
+  color: #c7c7c7;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+#start-menu p {
+  margin-top: 10px;
+  font-size: 0.85rem;
+  color: #777;
+}
+
+#difficulty-menu {
+  pointer-events: auto;
+  background: rgba(10, 10, 10, 0.88);
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 18px;
+  width: min(320px, 92%);
+  text-align: center;
+  backdrop-filter: blur(6px);
+}
+
+#difficulty-menu h2 {
+  font-size: 1rem;
+  color: #c7c7c7;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+
+.menu-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+/* ─ Canvas ─ */
+#game-canvas {
+  border: 1px solid #222;
+  border-radius: 6px;
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* ─ Controles gerais ─ */
+#controls {
+  display: flex;
+  gap: 10px;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+button {
+  background: transparent;
+  color: #ccc;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 8px 20px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+button.menu-btn {
+  background: #151515;
+  color: #eee;
+  border: 1px solid #333;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 1rem;
+}
+
+button.menu-btn:hover:not(:disabled) {
+  background: #1f1f1f;
+  border-color: #60a5fa;
+  color: #60a5fa;
+}
+
+button:hover:not(:disabled) {
+  background: #1e1e1e;
+  color: #fff;
+}
+
+button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ─ Mensagens ─ */
+#msg {
+  font-size: 0.8rem;
+  color: #555;
+  margin-top: 0.75rem;
+}
+
+.hint {
+  font-size: 0.72rem;
+  color: #3a3a3a;
+  margin-top: 0.4rem;
+  letter-spacing: 1px;
+}
+
+/* ─ Controles de toque ─ */
+.paddle-controls {
+  display: flex;
+  gap: 42px;
+  align-items: center;
+  justify-content: center;
+}
+
+.control-btn {
+  width: var(--btn-size, 90px);
+  height: var(--btn-size, 90px);
+  border-radius: 50%;
+  background: #1a1a1a;
+  border: 2px solid #333;
+  color: #666;
+  font-size: 1.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+#p2-controls .control-btn,
+#p1-controls .control-btn {
+  --btn-size: 78px;
+}
+
+.control-btn:active,
+.control-btn.active {
+  background: #2a2a2a;
+  border-color: #60a5fa;
+  color: #60a5fa;
+}
+
+.control-btn.p2:active,
+.control-btn.p2.active {
+  border-color: #f87171;
+  color: #f87171;
+}
+
+.hidden {
+  display: none !important;
+}

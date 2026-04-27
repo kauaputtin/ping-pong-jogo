@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ping Pong — Mobile</title>
+  <link rel="stylesheet" href="css/mobile.css" />
+</head>
+<body>
+
+  <h1>Ping Pong</h1>
+
+  <div id="game-frame">
+    <div id="center-col">
+      <div class="paddle-controls hidden" id="p2-controls" aria-label="Controles do Jogador 2">
+        <div class="control-btn p2" id="btn-p2-left">&lt;</div>
+        <div class="control-btn p2" id="btn-p2-right">&gt;</div>
+      </div>
+
+      <div id="field-row">
+        <div id="score-row" aria-label="Placar">
+          <div class="side-score" id="side-left">
+            <span class="score-label" id="label-left">JOGADOR</span>
+            <span class="score" id="score-left">0</span>
+          </div>
+
+          <div class="score-sep" aria-hidden="true">:</div>
+
+          <div class="side-score" id="side-right">
+            <span class="score-label" id="label-right">CPU</span>
+            <span class="score" id="score-right">0</span>
+          </div>
+        </div>
+
+        <div id="field">
+          <canvas id="game-canvas"></canvas>
+
+          <div id="overlay">
+            <div id="countdown" class="hidden">3</div>
+
+            <div id="start-menu">
+              <h2>Escolha o modo</h2>
+              <p>O jogo começa após 3 segundos</p>
+              <div class="menu-actions">
+                <button class="menu-btn" id="menu-1p">1 Jogador</button>
+                <button class="menu-btn" id="menu-2p">2 Jogadores</button>
+              </div>
+            </div>
+
+            <div id="difficulty-menu" class="hidden">
+              <h2>Escolha o nível</h2>
+              <div class="menu-actions">
+                <button class="menu-btn" id="diff-easy">Fácil</button>
+                <button class="menu-btn" id="diff-medium">Médio</button>
+                <button class="menu-btn" id="diff-pro">Pro</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="paddle-controls" id="p1-controls" aria-label="Controles do Jogador 1">
+        <div class="control-btn" id="btn-p1-left">&lt;</div>
+        <div class="control-btn" id="btn-p1-right">&gt;</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="controls">
+    <button id="btn-menu" onclick="GameMobile.openMenu()">Menu</button>
+    <button id="btn-pause" onclick="GameMobile.togglePause()" disabled>Pausar</button>
+    <button id="btn-reset" onclick="GameMobile.reset()">Reiniciar</button>
+    <button id="btn-difficulty" class="hidden" onclick="GameMobile.openDifficultyMenu()">Dificuldade</button>
+  </div>
+
+  <p class="hint" id="hint">Toque para mover a raquete</p>
+  <p id="msg">Escolha o modo de jogo</p>
+
+  <script src="js/game-mobile.js"></script>
+
+</body>
+</html>

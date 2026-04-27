@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ping Pong — Desktop</title>
+  <link rel="stylesheet" href="css/desktop.css" />
+</head>
+<body>
+
+  <h1>Ping Pong</h1>
+
+  <div id="scoreboard">
+    <div class="score-block">
+      <span class="score-label" id="label-left">JOGADOR</span>
+      <span id="score-left">0</span>
+    </div>
+    <div style="color: #333; line-height: 2.2;">:</div>
+    <div class="score-block">
+      <span class="score-label" id="label-right">CPU</span>
+      <span id="score-right">0</span>
+    </div>
+  </div>
+
+  <div id="game-container">
+    <canvas id="game-canvas" width="1096" height="610"></canvas>
+
+    <div id="overlay">
+      <div id="countdown" class="hidden">3</div>
+
+      <div id="start-menu">
+        <h2>Escolha o modo</h2>
+        <div class="menu-actions">
+          <button class="menu-btn" id="menu-1p">1 Jogador</button>
+          <button class="menu-btn" id="menu-2p">2 Jogadores</button>
+        </div>
+      </div>
+
+      <div id="difficulty-menu" class="hidden">
+        <h2>Escolha a dificuldade</h2>
+        <div class="menu-actions">
+          <button class="menu-btn" id="diff-easy">Fácil</button>
+          <button class="menu-btn" id="diff-medium">Médio</button>
+          <button class="menu-btn" id="diff-pro">Pro</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="controls">
+    <button id="btn-menu" onclick="Game.openMenu()">Menu</button>
+    <button id="btn-pause" onclick="Game.togglePause()" disabled>Pausar</button>
+    <button id="btn-reset" onclick="Game.reset()">Reiniciar</button>
+    <button id="btn-mode" onclick="Game.toggleMode()" class="hidden">2 Jogadores</button>
+    <button id="btn-difficulty" onclick="Game.openDifficultyMenu()" class="hidden">Dificuldade</button>
+  </div>
+
+  <p class="hint" id="hint">W / S  -  mover raquete</p>
+  <p id="msg">Pressione Menu para começar</p>
+
+  <script src="js/game-desktop.js"></script>
+
+</body>
+</html>
