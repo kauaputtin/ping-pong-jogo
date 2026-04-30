@@ -10,8 +10,8 @@ const Game = (() => {
   const H = canvas.height;
 
   // ── Constantes ───────────────────────────────────────
-  const PADDLE_W     = 10;
-  const PADDLE_H     = 70;
+  const PADDLE_W     = 5;
+  const PADDLE_H     = 100;
   const BASE_PADDLE_SPEED = 5;
   const BALL_RADIUS  = 9;
   const WINNING_SCORE = 7;
@@ -26,9 +26,9 @@ const Game = (() => {
 
   // Mantem o facil como esta e acelera no medio/pro.
   const SPEED_MODIFIERS = {
-    easy:   { ball: 1.0,  paddle: 1.0 },
-    medium: { ball: 1.25, paddle: 1.20 },
-    pro:    { ball: 1.50, paddle: 1.40 }
+    easy:   { ball: 1.0,  paddle: 1.5 },
+    medium: { ball: 1.25, paddle: 1.5 },
+    pro:    { ball: 1.50, paddle: 1.5 }
   };
 
   // ── Estado global ────────────────────────────────────

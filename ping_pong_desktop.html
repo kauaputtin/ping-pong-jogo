@@ -23,7 +23,7 @@
   </div>
 
   <div id="game-container">
-    <canvas id="game-canvas" width="1096" height="610"></canvas>
+    <canvas id="game-canvas" width="1196" height="610"></canvas>
 
     <div id="overlay">
       <div id="countdown" class="hidden">3</div>
@@ -38,6 +38,7 @@
 
       <div id="difficulty-menu" class="hidden">
         <h2>Escolha a dificuldade</h2>
+        <h5>A velocidade da bolinha e das raquetes aumentam conforme a dificuldade</h5>
         <div class="menu-actions">
           <button class="menu-btn" id="diff-easy">Fácil</button>
           <button class="menu-btn" id="diff-medium">Médio</button>
@@ -88,7 +89,7 @@
         width = height * aspectRatio;
       }
       
-      canvas.width = 1096;
+      canvas.width = 1196;
       canvas.height = 610;
       container.style.width = width + 'px';
       container.style.height = height + 'px';
