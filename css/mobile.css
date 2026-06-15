@@ -95,8 +95,7 @@ h1 {
   padding: 8px 4px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 6px;
-  background: rgba(13, 13, 13, 0.46);
-  backdrop-filter: blur(4px);
+  background: rgba(13, 13, 13, 0.72);
   transform: translateY(-50%);
 }
 
@@ -162,13 +161,12 @@ h1 {
 
 #start-menu {
   pointer-events: auto;
-  background: rgba(10, 10, 10, 0.88);
+  background: rgba(10, 10, 10, 0.94);
   border: 1px solid #333;
   border-radius: 12px;
   padding: 18px;
   width: min(320px, 92%);
   text-align: center;
-  backdrop-filter: blur(6px);
 }
 
 #start-menu h2 {
@@ -187,13 +185,12 @@ h1 {
 
 #difficulty-menu {
   pointer-events: auto;
-  background: rgba(10, 10, 10, 0.88);
+  background: rgba(10, 10, 10, 0.94);
   border: 1px solid #333;
   border-radius: 12px;
   padding: 18px;
   width: min(320px, 92%);
   text-align: center;
-  backdrop-filter: blur(6px);
 }
 
 #difficulty-menu h2 {
@@ -278,7 +275,6 @@ button {
   padding: 8px 14px;
   font-size: clamp(0.72rem, 2.8vw, 0.85rem);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
 }
 
 button.menu-btn {

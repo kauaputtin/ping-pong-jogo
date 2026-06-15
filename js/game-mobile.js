@@ -38,9 +38,10 @@ const GameMobile = (() => {
   const BASE_PADDLE_SPEED = 5;
   const BALL_RADIUS  = 6;
   const WINNING_SCORE = 5;
-  const BASE_BALL_SPEED = 5.6;
+  const BASE_BALL_SPEED = 5.25;
   const TARGET_FRAME_MS = 1000 / 60;
-  const MAX_FRAME_SCALE = 2;
+  const MAX_FRAME_SCALE = 1.5;
+  const MAX_BALL_SPEED = 14;
 
   // ── Dificuldades ─────────────────────────────────────
   const DIFFICULTY_SETTINGS = {
@@ -256,6 +257,8 @@ const GameMobile = (() => {
       return;
     }
 
+    const prevX = ball.x;
+    const prevY = ball.y;
     ball.x += ball.vx * frameScale;
     ball.y += ball.vy * frameScale;
 
@@ -270,13 +273,13 @@ const GameMobile = (() => {
     }
 
     // Colisão com paddle superior (CPU)
-    if (collidesAABB(ball, leftPaddle)) {
+    if (ball.vy < 0 && sweptPaddleCollision(ball, leftPaddle, prevX, prevY, -1)) {
       ball.y = leftPaddle.y + leftPaddle.h + ball.r;
       reflectBallVertical(ball, leftPaddle, +1);
     }
 
     // Colisão com paddle inferior (Jogador)
-    if (collidesAABB(ball, rightPaddle)) {
+    if (ball.vy > 0 && sweptPaddleCollision(ball, rightPaddle, prevX, prevY, +1)) {
       ball.y = rightPaddle.y - ball.r;
       reflectBallVertical(ball, rightPaddle, -1);
     }
@@ -297,7 +300,7 @@ const GameMobile = (() => {
   function reflectBallVertical(b, paddle, direction) {
     // Reflex baseado na posição horizontal da bola relativamente à raquete
     const offset = (b.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2);
-    const speed  = Math.min(Math.sqrt(b.vx ** 2 + b.vy ** 2) * 1.04, 18);
+    const speed  = Math.min(Math.sqrt(b.vx ** 2 + b.vy ** 2) * 1.025, MAX_BALL_SPEED);
     const angle  = offset * 0.85;
     b.vx = speed * Math.sin(angle);
     b.vy = direction * Math.abs(speed * Math.cos(angle));
@@ -308,6 +311,23 @@ const GameMobile = (() => {
            b.x + b.r > p.x &&
            b.y - b.r < p.y + p.h &&
            b.y + b.r > p.y;
+  }
+
+  function sweptPaddleCollision(b, p, prevX, prevY, direction) {
+    if (collidesAABB(b, p)) return true;
+
+    const collisionY = direction < 0 ? p.y + p.h + b.r : p.y - b.r;
+    const crossedPaddle =
+      direction < 0
+        ? prevY >= collisionY && b.y <= collisionY
+        : prevY <= collisionY && b.y >= collisionY;
+
+    if (!crossedPaddle || prevY === b.y) return false;
+
+    const t = (collisionY - prevY) / (b.y - prevY);
+    const hitX = prevX + (b.x - prevX) * t;
+    const reach = b.r + 1;
+    return hitX >= p.x - reach && hitX <= p.x + p.w + reach;
   }
 
   // ── Paddles ──────────────────────────────────────────
