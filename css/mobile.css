@@ -11,6 +11,7 @@
 html, body {
   width: 100%;
   height: 100%;
+  min-height: 100dvh;
   overflow: hidden;
 }
 
@@ -20,18 +21,19 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: space-between;
+  gap: 6px;
+  padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom));
   font-family: 'Segoe UI', sans-serif;
   color: #fff;
 }
 
 /* ─ Títulos ─ */
 h1 {
-  font-size: 1rem;
+  font-size: clamp(0.75rem, 2.5vw, 1rem);
   font-weight: 500;
   letter-spacing: 4px;
   text-transform: uppercase;
   color: #aaa;
-  margin-bottom: 0.4rem;
   flex-shrink: 0;
 }
 
@@ -44,6 +46,7 @@ h1 {
   width: 100%;
   flex: 1;
   overflow: hidden;
+  min-height: 0;
 }
 
 #center-col {
@@ -109,6 +112,8 @@ h1 {
   position: relative;
   flex: 1;
   width: 100%;
+  max-width: min(100%, 520px);
+  aspect-ratio: 380 / 640;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -194,15 +199,54 @@ h1 {
   border: 1px solid #222;
   border-radius: 6px;
   display: block;
+  width: 100%;
+  height: 100%;
   max-width: 100%;
-  height: auto;
+  touch-action: none;
+}
+
+#touch-guide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 38px 26px;
+  pointer-events: none;
+  user-select: none;
+  z-index: 1;
+}
+
+.guide-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: rgba(255, 255, 255, 0.34);
+  text-shadow: 0 3px 18px rgba(0, 0, 0, 0.9);
+}
+
+.guide-arrow {
+  font-size: clamp(2.8rem, 15vw, 5.4rem);
+  font-weight: 300;
+  line-height: 1;
+}
+
+.guide-label {
+  color: rgba(255, 255, 255, 0.24);
+  font-size: clamp(0.62rem, 2.4vw, 0.8rem);
+  letter-spacing: 2px;
+  text-align: center;
+}
+
+#touch-guide.single-player .guide-p1 {
+  visibility: hidden;
 }
 
 /* ─ Controles gerais ─ */
 #controls {
   display: flex;
   gap: 6px;
-  margin-top: 0.4rem;
   flex-wrap: wrap;
   justify-content: center;
   flex-shrink: 0;
@@ -213,8 +257,8 @@ button {
   color: #ccc;
   border: 1px solid #333;
   border-radius: 6px;
-  padding: 8px 20px;
-  font-size: 0.85rem;
+  padding: 8px 14px;
+  font-size: clamp(0.72rem, 2.8vw, 0.85rem);
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
@@ -252,60 +296,18 @@ button:disabled {
 #msg {
   font-size: 0.7rem;
   color: #555;
-  margin-top: 0.2rem;
   flex-shrink: 0;
+  min-height: 1em;
 }
 
 .hint {
   font-size: 0.65rem;
   color: #3a3a3a;
-  margin-top: 0.2rem;
   letter-spacing: 1px;
   flex-shrink: 0;
 }
 
 /* ─ Controles de toque ─ */
-.paddle-controls {
-  display: flex;
-  gap: 42px;
-  align-items: center;
-  justify-content: center;
-}
-
-.control-btn {
-  width: var(--btn-size, 90px);
-  height: var(--btn-size, 90px);
-  border-radius: 50%;
-  background: #1a1a1a;
-  border: 2px solid #333;
-  color: #666;
-  font-size: 1.8rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  user-select: none;
-  -webkit-user-select: none;
-  touch-action: manipulation;
-}
-
-#p2-controls .control-btn,
-#p1-controls .control-btn {
-  --btn-size: 78px;
-}
-
-.control-btn:active,
-.control-btn.active {
-  background: #2a2a2a;
-  border-color: #60a5fa;
-  color: #60a5fa;
-}
-
-.control-btn.p2:active,
-.control-btn.p2.active {
-  border-color: #f87171;
-  color: #f87171;
-}
-
 .hidden {
   display: none !important;
 }

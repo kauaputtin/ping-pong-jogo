@@ -12,11 +12,6 @@
 
   <div id="game-frame">
     <div id="center-col">
-      <div class="paddle-controls hidden" id="p2-controls" aria-label="Controles do Jogador 2">
-        <div class="control-btn p2" id="btn-p2-left">&lt;</div>
-        <div class="control-btn p2" id="btn-p2-right">&gt;</div>
-      </div>
-
       <div id="field-row">
         <div id="score-row" aria-label="Placar">
           <div class="side-score" id="side-left">
@@ -34,6 +29,19 @@
 
         <div id="field">
           <canvas id="game-canvas"></canvas>
+
+          <div id="touch-guide" class="hidden" aria-hidden="true">
+            <div class="guide-row guide-p1">
+              <span class="guide-arrow">&lsaquo;</span>
+              <span class="guide-label">JOGADOR 1</span>
+              <span class="guide-arrow">&rsaquo;</span>
+            </div>
+            <div class="guide-row guide-p2">
+              <span class="guide-arrow">&lsaquo;</span>
+              <span class="guide-label">JOGADOR 2</span>
+              <span class="guide-arrow">&rsaquo;</span>
+            </div>
+          </div>
 
           <div id="overlay">
             <div id="countdown" class="hidden">3</div>
@@ -59,10 +67,6 @@
         </div>
       </div>
 
-      <div class="paddle-controls" id="p1-controls" aria-label="Controles do Jogador 1">
-        <div class="control-btn" id="btn-p1-left">&lt;</div>
-        <div class="control-btn" id="btn-p1-right">&gt;</div>
-      </div>
     </div>
   </div>
 
@@ -85,15 +89,15 @@
       const h1 = document.querySelector('h1');
       const scoreRow = document.getElementById('score-row');
       const controls = document.getElementById('controls');
-      const hints = document.querySelectorAll('.hint, #msg');
       
       // Aspect ratio original do canvas (ajustar conforme necessário)
-      const aspectRatio = 16 / 9; // ou ajuste para o ratio real
+      const aspectRatio = 380 / 640;
       
+      const viewportHeight = window.visualViewport?.height || window.innerHeight;
       const headerHeight = (h1?.offsetHeight || 40) + (scoreRow?.offsetHeight || 50);
-      const footerHeight = (controls?.offsetHeight || 40) + 30;
-      const availableHeight = window.innerHeight - headerHeight - footerHeight;
-      const availableWidth = window.innerWidth - 16;
+      const footerHeight = (controls?.offsetHeight || 40) + 48;
+      const availableHeight = Math.max(260, viewportHeight - headerHeight - footerHeight);
+      const availableWidth = Math.min(window.innerWidth - 16, 520);
       
       // Calcular tamanho máximo
       let width = availableWidth;
@@ -114,6 +118,7 @@
     }
     
     window.addEventListener('resize', resizeCanvas);
+    window.visualViewport?.addEventListener('resize', resizeCanvas);
     window.addEventListener('load', resizeCanvas);
     resizeCanvas();
   </script>

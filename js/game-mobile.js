@@ -17,10 +17,8 @@ const GameMobile = (() => {
   
   // Função para manter proporção ao redimensionar a janela
   function maintainAspectRatio() {
-    const maxWidth = Math.min(window.innerWidth - 20, 500);
-    const scale = maxWidth / BASE_WIDTH;
-    canvas.style.width = (BASE_WIDTH * scale) + 'px';
-    canvas.style.height = (BASE_HEIGHT * scale) + 'px';
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
   }
   
   maintainAspectRatio();
@@ -66,6 +64,8 @@ const GameMobile = (() => {
   const labelLeft = document.getElementById('label-left');
   const labelRight = document.getElementById('label-right');
   const hintEl = document.getElementById('hint');
+  const touchGuideEl = document.getElementById('touch-guide');
+  const guideP2Label = document.querySelector('.guide-p2 .guide-label');
   const btnDifficulty = document.getElementById('btn-difficulty');
   const startMenuEl = document.getElementById('start-menu');
   const difficultyMenuEl = document.getElementById('difficulty-menu');
@@ -79,7 +79,8 @@ const GameMobile = (() => {
   let countdownUntil = 0;
   let lastCountdownShown = null;
   let serveAnim = null;
-  let touchX = null;
+  let topTouchX = null;
+  let bottomTouchX = null;
 
   // ── Event Listeners ──────────────────────────────────
   if (menu1pBtn) menu1pBtn.addEventListener('click', () => showDifficultyMenu());
@@ -89,13 +90,81 @@ const GameMobile = (() => {
   if (diffProBtn) diffProBtn.addEventListener('click', () => startNewMatch('cpu', 'pro'));
 
   // ── Touch controls (horizontal) ──────────────────────
-  canvas.addEventListener('touchmove', e => {
+  canvas.addEventListener('touchstart', e => {
     e.preventDefault();
-    const rect = canvas.getBoundingClientRect();
-    touchX = e.touches[0].clientX - rect.left;
+    updateTouchTargets(e.touches);
+    hideControlGuide();
   }, { passive: false });
 
-  canvas.addEventListener('touchend', () => { touchX = null; });
+  canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    updateTouchTargets(e.touches);
+    hideControlGuide();
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', e => { updateTouchTargets(e.touches); });
+  canvas.addEventListener('touchcancel', e => { updateTouchTargets(e.touches); });
+
+  canvas.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'touch') return;
+    updatePointerTarget(e);
+    hideControlGuide();
+  });
+
+  canvas.addEventListener('pointermove', e => {
+    if (e.pointerType === 'touch' || e.buttons !== 1) return;
+    updatePointerTarget(e);
+    hideControlGuide();
+  });
+
+  canvas.addEventListener('pointerup', () => {
+    topTouchX = null;
+    bottomTouchX = null;
+  });
+
+  function getCanvasPoint(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (clientX - rect.left) * (W / rect.width),
+      y: (clientY - rect.top) * (H / rect.height)
+    };
+  }
+
+  function updateTouchTargets(touches) {
+    topTouchX = null;
+    bottomTouchX = null;
+
+    Array.from(touches).forEach(touch => {
+      const point = getCanvasPoint(touch.clientX, touch.clientY);
+      if (mode === 'pvp' && point.y < H / 2) {
+        topTouchX = point.x;
+      } else {
+        bottomTouchX = point.x;
+      }
+    });
+  }
+
+  function updatePointerTarget(e) {
+    const point = getCanvasPoint(e.clientX, e.clientY);
+    if (mode === 'pvp' && point.y < H / 2) {
+      topTouchX = point.x;
+      bottomTouchX = null;
+    } else {
+      bottomTouchX = point.x;
+      topTouchX = null;
+    }
+  }
+
+  function showControlGuide() {
+    if (!touchGuideEl) return;
+    touchGuideEl.classList.toggle('single-player', mode === 'cpu');
+    if (guideP2Label) guideP2Label.textContent = mode === 'cpu' ? 'VOCÊ' : 'JOGADOR 2';
+    touchGuideEl.classList.remove('hidden');
+  }
+
+  function hideControlGuide() {
+    if (touchGuideEl) touchGuideEl.classList.add('hidden');
+  }
 
   // ── Atualizar UI do modo ────────────────────────────
   function updateModeUI() {
@@ -239,30 +308,25 @@ const GameMobile = (() => {
     // Jogador está no embaixo (rightPaddle)
     const mod = mode === 'cpu' ? (SPEED_MODIFIERS[difficulty] ?? SPEED_MODIFIERS.easy) : SPEED_MODIFIERS.easy;
     const step = BASE_PADDLE_SPEED * mod.paddle * 1.5;
-    if (touchX !== null) {
-      const targetX = touchX - PADDLE_W / 2;
-      const distance = Math.abs(targetX - rightPaddle.x);
-      if (distance > 2) {
-        const direction = targetX > rightPaddle.x ? 1 : -1;
-        rightPaddle.x += Math.min(distance, step) * direction;
-      }
-    }
+    movePaddleToward(rightPaddle, bottomTouchX, step);
     rightPaddle.x = clamp(rightPaddle.x, 0, W - PADDLE_W);
   }
 
   function movePlayer2Paddle() {
-    // Jogador 2 está no embaixo (rightPaddle)
-    const mod = mode === 'cpu' ? (SPEED_MODIFIERS[difficulty] ?? SPEED_MODIFIERS.easy) : SPEED_MODIFIERS.easy;
-    const step = BASE_PADDLE_SPEED * mod.paddle * 1.5;
-    if (touchX !== null) {
-      const targetX = touchX - PADDLE_W / 2;
-      const distance = Math.abs(targetX - rightPaddle.x);
-      if (distance > 2) {
-        const direction = targetX > rightPaddle.x ? 1 : -1;
-        rightPaddle.x += Math.min(distance, step) * direction;
-      }
+    // Jogador 1 está no topo (leftPaddle)
+    const step = BASE_PADDLE_SPEED * 1.5;
+    movePaddleToward(leftPaddle, topTouchX, step);
+    leftPaddle.x = clamp(leftPaddle.x, 0, W - PADDLE_W);
+  }
+
+  function movePaddleToward(paddle, targetCenterX, step) {
+    if (targetCenterX === null) return;
+    const targetX = targetCenterX - PADDLE_W / 2;
+    const distance = Math.abs(targetX - paddle.x);
+    if (distance > 2) {
+      const direction = targetX > paddle.x ? 1 : -1;
+      paddle.x += Math.min(distance, step) * direction;
     }
-    rightPaddle.x = clamp(rightPaddle.x, 0, W - PADDLE_W);
   }
 
   function moveCPUPaddle() {
@@ -419,7 +483,9 @@ const GameMobile = (() => {
     lastCountdownShown = null;
     serveAnim = null;
     ball = null;
-    touchX = null;
+    topTouchX = null;
+    bottomTouchX = null;
+    hideControlGuide();
     initState(true);
     
     if (startMenuEl) startMenuEl.classList.remove('hidden');
@@ -451,7 +517,8 @@ const GameMobile = (() => {
     paused   = false;
     gameOver = false;
     serveAnim = null;
-    touchX = null;
+    topTouchX = null;
+    bottomTouchX = null;
     initState(true);
     updateModeUI();
     if (startMenuEl) startMenuEl.classList.add('hidden');
@@ -459,6 +526,7 @@ const GameMobile = (() => {
     document.getElementById('btn-pause').disabled = true;
     document.getElementById('btn-pause').textContent = 'Pausar';
     beginCountdown(3);
+    showControlGuide();
     setMsg('Preparar...');
     draw();
     animId = requestAnimationFrame(loop);
