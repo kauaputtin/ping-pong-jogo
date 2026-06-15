@@ -5,7 +5,7 @@
 const GameMobile = (() => {
   // ── Canvas setup ────────────────────────────────────
   const canvas = document.getElementById('game-canvas');
-  const ctx    = canvas.getContext('2d');
+  const ctx    = canvas.getContext('2d', { alpha: false });
   
   // Dimensões base (proporção 9:16)
   const BASE_WIDTH = 380;
@@ -26,6 +26,10 @@ const GameMobile = (() => {
   
   const W = BASE_WIDTH;
   const H = BASE_HEIGHT;
+  const backgroundCanvas = document.createElement('canvas');
+  const backgroundCtx = backgroundCanvas.getContext('2d', { alpha: false });
+  backgroundCanvas.width = W;
+  backgroundCanvas.height = H;
 
   // ── Constantes ───────────────────────────────────────
   // Layout vertical: raquetes no topo e embaixo, movimento horizontal
@@ -34,7 +38,9 @@ const GameMobile = (() => {
   const BASE_PADDLE_SPEED = 5;
   const BALL_RADIUS  = 6;
   const WINNING_SCORE = 5;
-  const BASE_BALL_SPEED = 4.5;
+  const BASE_BALL_SPEED = 5.6;
+  const TARGET_FRAME_MS = 1000 / 60;
+  const MAX_FRAME_SCALE = 2;
 
   // ── Dificuldades ─────────────────────────────────────
   const DIFFICULTY_SETTINGS = {
@@ -79,6 +85,7 @@ const GameMobile = (() => {
   let countdownUntil = 0;
   let lastCountdownShown = null;
   let serveAnim = null;
+  let lastFrameTime = 0;
   let topTouchX = null;
   let bottomTouchX = null;
 
@@ -233,7 +240,7 @@ const GameMobile = (() => {
     ball = { x: next.x, y: next.y, vx: 0, vy: 0, r: startR };
   }
 
-  function moveBall(now) {
+  function moveBall(now, frameScale) {
     if (!ball) return;
 
     if (serveAnim) {
@@ -249,8 +256,8 @@ const GameMobile = (() => {
       return;
     }
 
-    ball.x += ball.vx;
-    ball.y += ball.vy;
+    ball.x += ball.vx * frameScale;
+    ball.y += ball.vy * frameScale;
 
     // Colisão com paredes laterais (esquerda/direita)
     if (ball.x - ball.r <= 0)  {
@@ -290,7 +297,7 @@ const GameMobile = (() => {
   function reflectBallVertical(b, paddle, direction) {
     // Reflex baseado na posição horizontal da bola relativamente à raquete
     const offset = (b.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2);
-    const speed  = Math.min(Math.sqrt(b.vx ** 2 + b.vy ** 2) * 1.04, 16);
+    const speed  = Math.min(Math.sqrt(b.vx ** 2 + b.vy ** 2) * 1.04, 18);
     const angle  = offset * 0.85;
     b.vx = speed * Math.sin(angle);
     b.vy = direction * Math.abs(speed * Math.cos(angle));
@@ -304,18 +311,18 @@ const GameMobile = (() => {
   }
 
   // ── Paddles ──────────────────────────────────────────
-  function movePlayerPaddle() {
+  function movePlayerPaddle(frameScale) {
     // Jogador está no embaixo (rightPaddle)
     const mod = mode === 'cpu' ? (SPEED_MODIFIERS[difficulty] ?? SPEED_MODIFIERS.easy) : SPEED_MODIFIERS.easy;
     const step = BASE_PADDLE_SPEED * mod.paddle * 1.5;
-    movePaddleToward(rightPaddle, bottomTouchX, step);
+    movePaddleToward(rightPaddle, bottomTouchX, step * frameScale);
     rightPaddle.x = clamp(rightPaddle.x, 0, W - PADDLE_W);
   }
 
-  function movePlayer2Paddle() {
+  function movePlayer2Paddle(frameScale) {
     // Jogador 1 está no topo (leftPaddle)
     const step = BASE_PADDLE_SPEED * 1.5;
-    movePaddleToward(leftPaddle, topTouchX, step);
+    movePaddleToward(leftPaddle, topTouchX, step * frameScale);
     leftPaddle.x = clamp(leftPaddle.x, 0, W - PADDLE_W);
   }
 
@@ -329,13 +336,13 @@ const GameMobile = (() => {
     }
   }
 
-  function moveCPUPaddle() {
+  function moveCPUPaddle(frameScale) {
     // CPU está no topo (leftPaddle)
     if (!ball) return;
     const center = leftPaddle.x + PADDLE_W / 2;
     const threshold = difficulty === 'easy' ? 20 : (difficulty === 'medium' ? 8 : 3);
     const mod = SPEED_MODIFIERS[difficulty] ?? SPEED_MODIFIERS.easy;
-    const cpuSpeed = currentCPUSpeed * mod.paddle * 1.2;
+    const cpuSpeed = currentCPUSpeed * mod.paddle * 1.2 * frameScale;
     
     if (center < ball.x - threshold) leftPaddle.x += cpuSpeed;
     else if (center > ball.x + threshold) leftPaddle.x -= cpuSpeed;
@@ -360,19 +367,22 @@ const GameMobile = (() => {
   }
 
   // ── Renderização ─────────────────────────────────────
-  function drawBackground() {
-    ctx.fillStyle = '#111';
-    ctx.fillRect(0, 0, W, H);
+  function buildStaticBackground() {
+    backgroundCtx.fillStyle = '#111';
+    backgroundCtx.fillRect(0, 0, W, H);
 
-    // Linha de divisão horizontal (no meio do campo)
-    ctx.setLineDash([6, 6]);
-    ctx.strokeStyle = '#2a2a2a';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(0, H / 2);
-    ctx.lineTo(W, H / 2);
-    ctx.stroke();
-    ctx.setLineDash([]);
+    backgroundCtx.setLineDash([6, 6]);
+    backgroundCtx.strokeStyle = '#2a2a2a';
+    backgroundCtx.lineWidth = 1;
+    backgroundCtx.beginPath();
+    backgroundCtx.moveTo(0, H / 2);
+    backgroundCtx.lineTo(W, H / 2);
+    backgroundCtx.stroke();
+    backgroundCtx.setLineDash([]);
+  }
+
+  function drawBackground() {
+    ctx.drawImage(backgroundCanvas, 0, 0);
   }
 
   function drawPaddle(p, color) {
@@ -439,15 +449,18 @@ const GameMobile = (() => {
   function loop(ts) {
     if (!running || paused || gameOver) return;
     const now = ts ?? performance.now();
+    const delta = lastFrameTime ? now - lastFrameTime : TARGET_FRAME_MS;
+    const frameScale = clamp(delta / TARGET_FRAME_MS, 0.5, MAX_FRAME_SCALE);
+    lastFrameTime = now;
 
-    movePlayerPaddle();
-    if (mode === 'pvp') movePlayer2Paddle();
-    else moveCPUPaddle();
+    movePlayerPaddle(frameScale);
+    if (mode === 'pvp') movePlayer2Paddle(frameScale);
+    else moveCPUPaddle(frameScale);
 
     if (countdownUntil) {
       if (updateCountdown(now)) startRally();
     } else {
-      moveBall(now);
+      moveBall(now, frameScale);
     }
 
     draw();
@@ -482,6 +495,7 @@ const GameMobile = (() => {
     countdownUntil = 0;
     lastCountdownShown = null;
     serveAnim = null;
+    lastFrameTime = 0;
     ball = null;
     topTouchX = null;
     bottomTouchX = null;
@@ -517,6 +531,7 @@ const GameMobile = (() => {
     paused   = false;
     gameOver = false;
     serveAnim = null;
+    lastFrameTime = 0;
     topTouchX = null;
     bottomTouchX = null;
     initState(true);
@@ -538,6 +553,7 @@ const GameMobile = (() => {
     const btn = document.getElementById('btn-pause');
     btn.textContent = paused ? 'Continuar' : 'Pausar';
     if (!paused) {
+      lastFrameTime = 0;
       setMsg('');
       loop();
     } else {
@@ -550,6 +566,7 @@ const GameMobile = (() => {
   }
 
   // ── Boot ─────────────────────────────────────────────
+  buildStaticBackground();
   initState();
   updateModeUI();
   draw();

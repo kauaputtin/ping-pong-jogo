@@ -83,18 +83,25 @@
   <script src="js/game-mobile.js"></script>
   <script>
     // Resize canvas to fit window
+    let resizeFrame = null;
+
+    function scheduleResizeCanvas() {
+      if (resizeFrame) cancelAnimationFrame(resizeFrame);
+      resizeFrame = requestAnimationFrame(resizeCanvas);
+    }
+
     function resizeCanvas() {
+      resizeFrame = null;
       const canvas = document.getElementById('game-canvas');
       const field = document.getElementById('field');
       const h1 = document.querySelector('h1');
-      const scoreRow = document.getElementById('score-row');
       const controls = document.getElementById('controls');
       
       // Aspect ratio original do canvas (ajustar conforme necessário)
       const aspectRatio = 380 / 640;
       
       const viewportHeight = window.visualViewport?.height || window.innerHeight;
-      const headerHeight = (h1?.offsetHeight || 40) + (scoreRow?.offsetHeight || 50);
+      const headerHeight = h1?.offsetHeight || 40;
       const footerHeight = (controls?.offsetHeight || 40) + 48;
       const availableHeight = Math.max(260, viewportHeight - headerHeight - footerHeight);
       const availableWidth = Math.min(window.innerWidth - 16, 520);
@@ -117,8 +124,8 @@
       canvas.style.height = '100%';
     }
     
-    window.addEventListener('resize', resizeCanvas);
-    window.visualViewport?.addEventListener('resize', resizeCanvas);
+    window.addEventListener('resize', scheduleResizeCanvas);
+    window.visualViewport?.addEventListener('resize', scheduleResizeCanvas);
     window.addEventListener('load', resizeCanvas);
     resizeCanvas();
   </script>
