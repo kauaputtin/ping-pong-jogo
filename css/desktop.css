@@ -133,6 +133,21 @@ h1 {
   gap: 12px;
 }
 
+.menu-help {
+  margin-top: 16px;
+  display: grid;
+  gap: 6px;
+  color: #8a8a8a;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  letter-spacing: 0.4px;
+}
+
+.menu-help strong {
+  color: #c7c7c7;
+  font-weight: 600;
+}
+
 .menu-btn {
   background: #151515;
   color: #eee;

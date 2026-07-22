@@ -211,24 +211,31 @@ const GameMobile = (() => {
   }
 
   // ── Lógica da bola ───────────────────────────────────
-  function spawnBall() {
+  function spawnBall(scorerSide = null) {
     // No layout vertical, começamos com movimento mais vertical
     const angleOffset = Math.random() * 0.4 - 0.2; // -0.2 a 0.2
     const mod = mode === 'cpu' ? (SPEED_MODIFIERS[difficulty] ?? SPEED_MODIFIERS.easy) : SPEED_MODIFIERS.easy;
     const speed = BASE_BALL_SPEED * mod.ball;
-    const vy = speed * (Math.random() < 0.5 ? 1 : -1); // Começa com movimento vertical
+    const serveFromTop = scorerSide === 'left';
+    const serveFromBottom = scorerSide === 'right';
+    const servingPaddle = serveFromTop ? leftPaddle : (serveFromBottom ? rightPaddle : null);
+    const vy = speed * (scorerSide ? (serveFromTop ? 1 : -1) : (Math.random() < 0.5 ? 1 : -1)); // Começa com movimento vertical
     const vx = speed * angleOffset;
     return {
-      x:  W / 2,
-      y:  H / 2,
+      x:  servingPaddle ? servingPaddle.x + servingPaddle.w / 2 : W / 2,
+      y:  serveFromTop
+            ? leftPaddle.y + leftPaddle.h + BALL_RADIUS + 4
+            : serveFromBottom
+              ? rightPaddle.y - BALL_RADIUS - 4
+              : H / 2,
       vx: vx,
       vy: vy,
       r:  BALL_RADIUS
     };
   }
 
-  function beginServeDrop() {
-    const next = spawnBall();
+  function beginServeDrop(scorerSide = null) {
+    const next = spawnBall(scorerSide);
     const startR = BALL_RADIUS * 3.4;
     serveAnim = {
       start: performance.now(),
@@ -287,13 +294,13 @@ const GameMobile = (() => {
     // Saiu pelo topo → ponto para o jogador (embaixo/rightPaddle)
     if (ball.y - ball.r < 0) {
       scores.right++;
-      handlePoint(mode === 'cpu' ? 'Você' : 'Jogador 2');
+      handlePoint(mode === 'cpu' ? 'Você' : 'Jogador 2', 'right');
     }
 
     // Saiu pelo embaixo → ponto para CPU (topo/leftPaddle)
     if (ball.y + ball.r > H) {
       scores.left++;
-      handlePoint(mode === 'cpu' ? 'CPU' : 'Jogador 1');
+      handlePoint(mode === 'cpu' ? 'CPU' : 'Jogador 1', 'left');
     }
   }
 
@@ -370,19 +377,24 @@ const GameMobile = (() => {
   }
 
   // ── Pontuação / vitória ──────────────────────────────
-  function handlePoint(scorer) {
+  function handlePoint(scorer, scorerSide) {
     updateScoreUI();
     if (scores.left >= WINNING_SCORE || scores.right >= WINNING_SCORE) {
       endGame(scorer);
     } else {
-      beginServeDrop();
+      centerPaddle(scorerSide);
+      beginServeDrop(scorerSide);
     }
   }
 
   function endGame(winner) {
     gameOver = true;
     running  = false;
-    setMsg(`${winner} venceu! Toque para jogar novamente.`);
+    if (mode === 'cpu') {
+      setMsg(scores.right >= WINNING_SCORE ? 'Vitoria do Jogador 1' : 'Vitoria da CPU');
+    } else {
+      setMsg(`${winner} venceu! Toque para jogar novamente.`);
+    }
     document.getElementById('btn-pause').disabled = true;
   }
 
@@ -490,6 +502,11 @@ const GameMobile = (() => {
   // ── Utilitários ──────────────────────────────────────
   function clamp(val, min, max) {
     return Math.max(min, Math.min(max, val));
+  }
+
+  function centerPaddle(side) {
+    const paddle = side === 'left' ? leftPaddle : side === 'right' ? rightPaddle : null;
+    if (paddle) paddle.x = W / 2 - paddle.w / 2;
   }
 
   function updateScoreUI() {

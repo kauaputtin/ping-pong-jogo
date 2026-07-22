@@ -58,6 +58,8 @@ const Game = (() => {
   let countdownUntil = 0;
   let lastCountdownShown = null;
   let serveAnim = null;
+  let mouseY = null;
+  let mouseControlsSide = null;
 
   // ── Event Listeners ──────────────────────────────────
   if (menu1pBtn) menu1pBtn.addEventListener('click', () => showDifficultyMenu());
@@ -70,11 +72,24 @@ const Game = (() => {
   const keys = {};
   document.addEventListener('keydown', e => {
     keys[e.key] = true;
+    if (['w', 's', 'W', 'S'].includes(e.key) && mouseControlsSide === 'left') {
+      mouseControlsSide = null;
+    }
+    if (['ArrowUp', 'ArrowDown'].includes(e.key) && mouseControlsSide === 'right') {
+      mouseControlsSide = null;
+    }
     if (['w','s','W','S','ArrowUp','ArrowDown'].includes(e.key)) {
       e.preventDefault();
     }
   });
   document.addEventListener('keyup', e => { keys[e.key] = false; });
+
+  canvas.addEventListener('pointermove', e => {
+    if (mode !== 'cpu') return;
+    const rect = canvas.getBoundingClientRect();
+    mouseY = (e.clientY - rect.top) * (H / rect.height);
+    mouseControlsSide = 'left';
+  });
 
   // ── Atualizar UI do modo ────────────────────────────
   function updateModeUI() {
@@ -82,7 +97,7 @@ const Game = (() => {
       if (labelLeft) labelLeft.textContent = 'JOGADOR';
       if (labelRight) labelRight.textContent = 'CPU';
       if (btnDifficulty) btnDifficulty.classList.remove('hidden');
-      if (hintEl) hintEl.textContent = 'W / S  -  mover raquete';
+      if (hintEl) hintEl.textContent = 'W / S ou Mouse  -  mover raquete';
     } else {
       if (labelLeft) labelLeft.textContent = 'JOGADOR 1';
       if (labelRight) labelRight.textContent = 'JOGADOR 2';
@@ -111,21 +126,28 @@ const Game = (() => {
   }
 
   // ── Lógica da bola ───────────────────────────────────
-  function spawnBall() {
+  function spawnBall(scorerSide = null) {
     const angle = (Math.random() * 0.5 + 0.2) * (Math.random() < 0.5 ? 1 : -1);
     const mod = mode === 'cpu' ? (SPEED_MODIFIERS[difficulty] ?? SPEED_MODIFIERS.easy) : SPEED_MODIFIERS.easy;
     const speed = BASE_BALL_SPEED * mod.ball;
+    const serveFromLeft = scorerSide === 'left';
+    const serveFromRight = scorerSide === 'right';
+    const servingPaddle = serveFromLeft ? leftPaddle : (serveFromRight ? rightPaddle : null);
     return {
-      x:  W / 2,
-      y:  H / 2,
-      vx: speed * Math.cos(angle) * (Math.random() < 0.5 ? 1 : -1),
+      x:  serveFromLeft
+            ? leftPaddle.x + leftPaddle.w + BALL_RADIUS + 4
+            : serveFromRight
+              ? rightPaddle.x - BALL_RADIUS - 4
+              : W / 2,
+      y:  servingPaddle ? servingPaddle.y + servingPaddle.h / 2 : H / 2,
+      vx: speed * Math.cos(angle) * (scorerSide ? (serveFromLeft ? 1 : -1) : (Math.random() < 0.5 ? 1 : -1)),
       vy: speed * Math.sin(angle),
       r:  BALL_RADIUS
     };
   }
 
-  function beginServeDrop() {
-    const next = spawnBall();
+  function beginServeDrop(scorerSide = null) {
+    const next = spawnBall(scorerSide);
     const startR = BALL_RADIUS * 3.4;
     serveAnim = {
       start: performance.now(),
@@ -182,13 +204,13 @@ const Game = (() => {
     // Saiu pela esquerda → ponto para CPU
     if (ball.x + ball.r < 0) {
       scores.right++;
-      handlePoint(mode === 'cpu' ? 'CPU' : 'Jogador 2');
+      handlePoint(mode === 'cpu' ? 'CPU' : 'Jogador 2', 'right');
     }
 
     // Saiu pela direita → ponto para o jogador
     if (ball.x - ball.r > W) {
       scores.left++;
-      handlePoint(mode === 'cpu' ? 'Jogador' : 'Jogador 1');
+      handlePoint(mode === 'cpu' ? 'Jogador' : 'Jogador 1', 'left');
     }
   }
 
@@ -213,6 +235,9 @@ const Game = (() => {
     const paddleSpeed = BASE_PADDLE_SPEED * mod.paddle;
     if (keys['w'] || keys['W']) leftPaddle.y -= paddleSpeed;
     if (keys['s'] || keys['S']) leftPaddle.y += paddleSpeed;
+    if (mouseControlsSide === 'left' && mouseY !== null && !keys['w'] && !keys['W'] && !keys['s'] && !keys['S']) {
+      leftPaddle.y = mouseY - leftPaddle.h / 2;
+    }
     leftPaddle.y = clamp(leftPaddle.y, 0, H - PADDLE_H);
   }
 
@@ -235,19 +260,24 @@ const Game = (() => {
   }
 
   // ── Pontuação / vitória ──────────────────────────────
-  function handlePoint(scorer) {
+  function handlePoint(scorer, scorerSide) {
     updateScoreUI();
     if (scores.left >= WINNING_SCORE || scores.right >= WINNING_SCORE) {
       endGame(scorer);
     } else {
-      beginServeDrop();
+      centerPaddle(scorerSide);
+      beginServeDrop(scorerSide);
     }
   }
 
   function endGame(winner) {
     gameOver = true;
     running  = false;
-    setMsg(`${winner} venceu! Pressione Reiniciar para jogar novamente.`);
+    if (mode === 'cpu') {
+      setMsg(scores.left >= WINNING_SCORE ? 'Vitoria do Jogador 1' : 'Vitoria da CPU');
+    } else {
+      setMsg(`${winner} venceu! Pressione Reiniciar para jogar novamente.`);
+    }
     document.getElementById('btn-pause').disabled = true;
   }
 
@@ -359,6 +389,11 @@ const Game = (() => {
     return Math.max(min, Math.min(max, val));
   }
 
+  function centerPaddle(side) {
+    const paddle = side === 'left' ? leftPaddle : side === 'right' ? rightPaddle : null;
+    if (paddle) paddle.y = H / 2 - paddle.h / 2;
+  }
+
   function updateScoreUI() {
     document.getElementById('score-left').textContent  = scores.left;
     document.getElementById('score-right').textContent = scores.right;
@@ -383,6 +418,8 @@ const Game = (() => {
     lastCountdownShown = null;
     serveAnim = null;
     ball = null;
+    mouseY = null;
+    mouseControlsSide = null;
     initState(true);
     
     if (startMenuEl) startMenuEl.classList.remove('hidden');
@@ -414,6 +451,8 @@ const Game = (() => {
     paused   = false;
     gameOver = false;
     serveAnim = null;
+    mouseY = null;
+    mouseControlsSide = null;
     initState(true);
     updateModeUI();
     if (startMenuEl) startMenuEl.classList.add('hidden');
