@@ -47,7 +47,41 @@
             <div id="countdown" class="hidden">3</div>
 
             <div id="start-menu">
-              <h2>Escolha o modo</h2>
+              <div class="menu-header">
+                <h2>Ping Pong The Game</h2>
+                <button id="settings-toggle" class="icon-btn" type="button" aria-label="Configurações" aria-expanded="false">
+                  &#9881;
+                </button>
+              </div>
+
+              <div id="settings-panel" class="settings-panel hidden">
+                <div class="setting-group">
+                  <h3>Velocidade da bola:</h3>
+                  <div class="option-row" role="group" aria-label="Velocidade da bola">
+                    <button class="option-btn" type="button" data-setting="ballSpeed" data-value="slow">Lenta</button>
+                    <button class="option-btn active" type="button" data-setting="ballSpeed" data-value="normal">Normal</button>
+                    <button class="option-btn" type="button" data-setting="ballSpeed" data-value="fast">Rápida</button>
+                  </div>
+                </div>
+
+                <div class="setting-group">
+                  <h3>Pontos para vencer:</h3>
+                  <div class="option-row" role="group" aria-label="Pontos para vencer">
+                    <button class="option-btn active" type="button" data-setting="winningScore" data-value="5">5</button>
+                    <button class="option-btn" type="button" data-setting="winningScore" data-value="10">10</button>
+                    <button class="option-btn" type="button" data-setting="winningScore" data-value="15">15</button>
+                  </div>
+                </div>
+
+                <div class="setting-group">
+                  <h3>Tipo de controle:</h3>
+                  <div class="control-options" role="group" aria-label="Tipo de controle">
+                    <button class="option-btn active" type="button" data-setting="controlType" data-value="drag">Arrastar a raquete com o dedo</button>
+                    <button class="option-btn" type="button" data-setting="controlType" data-value="buttons">Botões na tela &uarr; &darr;</button>
+                  </div>
+                </div>
+              </div>
+
               <p>O jogo começa após 3 segundos</p>
               <div class="menu-actions">
                 <button class="menu-btn" id="menu-1p">1 Jogador</button>
@@ -75,6 +109,11 @@
     <button id="btn-pause" onclick="GameMobile.togglePause()" disabled>Pausar</button>
     <button id="btn-reset" onclick="GameMobile.reset()">Reiniciar</button>
     <button id="btn-difficulty" class="hidden" onclick="GameMobile.openDifficultyMenu()">Dificuldade</button>
+  </div>
+
+  <div id="touch-buttons" class="hidden" aria-label="Botões de controle">
+    <button id="touch-up" type="button" aria-label="Mover para cima">&uarr;</button>
+    <button id="touch-down" type="button" aria-label="Mover para baixo">&darr;</button>
   </div>
 
   <p class="hint" id="hint">Toque para mover a raquete</p>

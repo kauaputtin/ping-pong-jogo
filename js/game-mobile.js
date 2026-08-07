@@ -37,7 +37,6 @@ const GameMobile = (() => {
   const PADDLE_H     = 8;    // Altura (espessura) da raquete
   const BASE_PADDLE_SPEED = 5;
   const BALL_RADIUS  = 6;
-  const WINNING_SCORE = 5;
   const BASE_BALL_SPEED = 5.25;
   const TARGET_FRAME_MS = 1000 / 60;
   const MAX_FRAME_SCALE = 1.5;
@@ -57,6 +56,12 @@ const GameMobile = (() => {
     pro:    { ball: 1.50, paddle: 1.40 }
   };
 
+  const BALL_SPEED_SETTINGS = {
+    slow: 0.82,
+    normal: 1,
+    fast: 1.22
+  };
+
   // ── Estado global ────────────────────────────────────
   let running  = false;
   let paused   = false;
@@ -67,6 +72,9 @@ const GameMobile = (() => {
   let mode = 'cpu'; // 'cpu' | 'pvp'
   let difficulty = 'medium';
   let currentCPUSpeed = DIFFICULTY_SETTINGS.medium.speed;
+  let ballSpeedSetting = 'normal';
+  let winningScore = 5;
+  let controlType = 'drag';
 
   const labelLeft = document.getElementById('label-left');
   const labelRight = document.getElementById('label-right');
@@ -82,6 +90,12 @@ const GameMobile = (() => {
   const diffEasyBtn = document.getElementById('diff-easy');
   const diffMediumBtn = document.getElementById('diff-medium');
   const diffProBtn = document.getElementById('diff-pro');
+  const settingsToggleBtn = document.getElementById('settings-toggle');
+  const settingsPanelEl = document.getElementById('settings-panel');
+  const optionBtns = document.querySelectorAll('.option-btn[data-setting]');
+  const touchButtonsEl = document.getElementById('touch-buttons');
+  const touchUpBtn = document.getElementById('touch-up');
+  const touchDownBtn = document.getElementById('touch-down');
 
   let countdownUntil = 0;
   let lastCountdownShown = null;
@@ -89,6 +103,7 @@ const GameMobile = (() => {
   let lastFrameTime = 0;
   let topTouchX = null;
   let bottomTouchX = null;
+  let buttonControlDirection = 0;
 
   // ── Event Listeners ──────────────────────────────────
   if (menu1pBtn) menu1pBtn.addEventListener('click', () => showDifficultyMenu());
@@ -96,6 +111,10 @@ const GameMobile = (() => {
   if (diffEasyBtn) diffEasyBtn.addEventListener('click', () => startNewMatch('cpu', 'easy'));
   if (diffMediumBtn) diffMediumBtn.addEventListener('click', () => startNewMatch('cpu', 'medium'));
   if (diffProBtn) diffProBtn.addEventListener('click', () => startNewMatch('cpu', 'pro'));
+  if (settingsToggleBtn) settingsToggleBtn.addEventListener('click', toggleSettingsPanel);
+  optionBtns.forEach(btn => btn.addEventListener('click', () => applySetting(btn)));
+  bindControlButton(touchUpBtn, -1);
+  bindControlButton(touchDownBtn, 1);
 
   // ── Touch controls (horizontal) ──────────────────────
   canvas.addEventListener('touchstart', e => {
@@ -139,6 +158,7 @@ const GameMobile = (() => {
   }
 
   function updateTouchTargets(touches) {
+    if (controlType === 'buttons') return;
     topTouchX = null;
     bottomTouchX = null;
 
@@ -153,6 +173,7 @@ const GameMobile = (() => {
   }
 
   function updatePointerTarget(e) {
+    if (controlType === 'buttons') return;
     const point = getCanvasPoint(e.clientX, e.clientY);
     if (mode === 'pvp' && point.y < H / 2) {
       topTouchX = point.x;
@@ -164,6 +185,7 @@ const GameMobile = (() => {
   }
 
   function showControlGuide() {
+    if (controlType === 'buttons') return;
     if (!touchGuideEl) return;
     touchGuideEl.classList.toggle('single-player', mode === 'cpu');
     if (guideP2Label) guideP2Label.textContent = mode === 'cpu' ? 'VOCÊ' : 'JOGADOR 2';
@@ -180,13 +202,14 @@ const GameMobile = (() => {
       if (labelLeft) labelLeft.textContent = 'CPU (TOPO)';
       if (labelRight) labelRight.textContent = 'VOCÊ (FUNDO)';
       if (btnDifficulty) btnDifficulty.classList.remove('hidden');
-      if (hintEl) hintEl.textContent = 'Toque para mover a raquete';
+      if (hintEl) hintEl.textContent = controlType === 'buttons' ? 'Use os botoes para mover a raquete' : 'Toque para mover a raquete';
     } else {
       if (labelLeft) labelLeft.textContent = 'JOGADOR 1 (TOPO)';
       if (labelRight) labelRight.textContent = 'JOGADOR 2 (FUNDO)';
       if (btnDifficulty) btnDifficulty.classList.add('hidden');
-      if (hintEl) hintEl.textContent = 'Ambos: toque para mover';
+      if (hintEl) hintEl.textContent = controlType === 'buttons' ? 'Jogador 2 usa os botoes na tela' : 'Ambos: toque para mover';
     }
+    updateControlButtons();
   }
 
   // ── Inicialização ────────────────────────────────────
@@ -215,7 +238,7 @@ const GameMobile = (() => {
     // No layout vertical, começamos com movimento mais vertical
     const angleOffset = Math.random() * 0.4 - 0.2; // -0.2 a 0.2
     const mod = mode === 'cpu' ? (SPEED_MODIFIERS[difficulty] ?? SPEED_MODIFIERS.easy) : SPEED_MODIFIERS.easy;
-    const speed = BASE_BALL_SPEED * mod.ball;
+    const speed = BASE_BALL_SPEED * mod.ball * (BALL_SPEED_SETTINGS[ballSpeedSetting] ?? 1);
     const serveFromTop = scorerSide === 'left';
     const serveFromBottom = scorerSide === 'right';
     const servingPaddle = serveFromTop ? leftPaddle : (serveFromBottom ? rightPaddle : null);
@@ -342,7 +365,11 @@ const GameMobile = (() => {
     // Jogador está no embaixo (rightPaddle)
     const mod = mode === 'cpu' ? (SPEED_MODIFIERS[difficulty] ?? SPEED_MODIFIERS.easy) : SPEED_MODIFIERS.easy;
     const step = BASE_PADDLE_SPEED * mod.paddle * 1.5;
-    movePaddleToward(rightPaddle, bottomTouchX, step * frameScale);
+    if (controlType === 'buttons') {
+      rightPaddle.x += buttonControlDirection * step * frameScale;
+    } else {
+      movePaddleToward(rightPaddle, bottomTouchX, step * frameScale);
+    }
     rightPaddle.x = clamp(rightPaddle.x, 0, W - PADDLE_W);
   }
 
@@ -379,7 +406,7 @@ const GameMobile = (() => {
   // ── Pontuação / vitória ──────────────────────────────
   function handlePoint(scorer, scorerSide) {
     updateScoreUI();
-    if (scores.left >= WINNING_SCORE || scores.right >= WINNING_SCORE) {
+    if (scores.left >= winningScore || scores.right >= winningScore) {
       endGame(scorer);
     } else {
       centerPaddle(scorerSide);
@@ -391,11 +418,12 @@ const GameMobile = (() => {
     gameOver = true;
     running  = false;
     if (mode === 'cpu') {
-      setMsg(scores.right >= WINNING_SCORE ? 'Vitoria do Jogador 1' : 'Vitoria da CPU');
+      setMsg(scores.right >= winningScore ? 'Vitoria do Jogador 1' : 'Vitoria da CPU');
     } else {
       setMsg(`${winner} venceu! Toque para jogar novamente.`);
     }
     document.getElementById('btn-pause').disabled = true;
+    updateControlButtons();
   }
 
   // ── Renderização ─────────────────────────────────────
@@ -519,6 +547,54 @@ const GameMobile = (() => {
   }
 
   // ── Menu & Dificuldade ───────────────────────────────
+  function toggleSettingsPanel() {
+    if (!settingsPanelEl || !settingsToggleBtn) return;
+    const isHidden = settingsPanelEl.classList.toggle('hidden');
+    settingsToggleBtn.setAttribute('aria-expanded', String(!isHidden));
+  }
+
+  function applySetting(btn) {
+    const setting = btn.dataset.setting;
+    const value = btn.dataset.value;
+
+    if (setting === 'ballSpeed') ballSpeedSetting = value;
+    if (setting === 'winningScore') winningScore = Number(value);
+    if (setting === 'controlType') {
+      controlType = value;
+      topTouchX = null;
+      bottomTouchX = null;
+      buttonControlDirection = 0;
+      updateModeUI();
+    }
+
+    document
+      .querySelectorAll(`.option-btn[data-setting="${setting}"]`)
+      .forEach(option => option.classList.toggle('active', option === btn));
+  }
+
+  function bindControlButton(button, direction) {
+    if (!button) return;
+    const start = e => {
+      e.preventDefault();
+      buttonControlDirection = direction;
+      hideControlGuide();
+    };
+    const stop = e => {
+      e.preventDefault();
+      if (buttonControlDirection === direction) buttonControlDirection = 0;
+    };
+
+    button.addEventListener('pointerdown', start);
+    button.addEventListener('pointerup', stop);
+    button.addEventListener('pointercancel', stop);
+    button.addEventListener('pointerleave', stop);
+  }
+
+  function updateControlButtons() {
+    if (!touchButtonsEl) return;
+    touchButtonsEl.classList.toggle('hidden', controlType !== 'buttons' || !running || paused || gameOver);
+  }
+
   function showDifficultyMenu() {
     if (startMenuEl) startMenuEl.classList.add('hidden');
     if (difficultyMenuEl) difficultyMenuEl.classList.remove('hidden');
@@ -536,11 +612,16 @@ const GameMobile = (() => {
     ball = null;
     topTouchX = null;
     bottomTouchX = null;
+    buttonControlDirection = 0;
     hideControlGuide();
     initState(true);
+    document.body.classList.add('menu-open');
+    updateControlButtons();
     
     if (startMenuEl) startMenuEl.classList.remove('hidden');
     if (difficultyMenuEl) difficultyMenuEl.classList.add('hidden');
+    if (settingsPanelEl) settingsPanelEl.classList.add('hidden');
+    if (settingsToggleBtn) settingsToggleBtn.setAttribute('aria-expanded', 'false');
     if (countdownEl) {
       countdownEl.classList.add('hidden');
       countdownEl.textContent = '';
@@ -571,14 +652,17 @@ const GameMobile = (() => {
     lastFrameTime = 0;
     topTouchX = null;
     bottomTouchX = null;
+    buttonControlDirection = 0;
     initState(true);
     updateModeUI();
+    document.body.classList.remove('menu-open');
     if (startMenuEl) startMenuEl.classList.add('hidden');
     if (difficultyMenuEl) difficultyMenuEl.classList.add('hidden');
     document.getElementById('btn-pause').disabled = true;
     document.getElementById('btn-pause').textContent = 'Pausar';
     beginCountdown(3);
     showControlGuide();
+    updateControlButtons();
     setMsg('Preparar...');
     draw();
     animId = requestAnimationFrame(loop);
@@ -596,6 +680,7 @@ const GameMobile = (() => {
     } else {
       setMsg('Pausado');
     }
+    updateControlButtons();
   }
 
   function reset() {
@@ -606,6 +691,7 @@ const GameMobile = (() => {
   buildStaticBackground();
   initState();
   updateModeUI();
+  document.body.classList.add('menu-open');
   draw();
 
   return { 
