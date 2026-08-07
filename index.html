@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ping Pong | The game</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Ping Pong | The Game</title>
   <style>
     * {
       box-sizing: border-box;
@@ -11,61 +11,42 @@
       padding: 0;
     }
 
-    html, body {
-      width: 100%;
-      height: 100%;
-    }
-
+    html,
     body {
-      background: #0d0d0d;
-      overflow: hidden;
-    }
-
-    .frame {
-      position: absolute;
-      inset: 0;
       width: 100%;
       height: 100%;
-      border: 0;
-      display: none;
+      min-height: 100dvh;
+      overflow: hidden;
+      background: #0d0d0d;
     }
 
-    .frame.active {
+    #game-frame {
       display: block;
+      width: 100dvw;
+      height: 100dvh;
+      border: 0;
     }
   </style>
 </head>
 <body>
-  <noscript style="color: #fff; font-family: Segoe UI, sans-serif; padding: 16px; display: block;">
+  <noscript style="display: block; padding: 16px; color: #fff; font-family: Segoe UI, sans-serif;">
     Ative o JavaScript para jogar.
   </noscript>
 
-  <iframe id="frame-desktop" class="frame active" src="ping_pong_desktop.html" title="Ping Pong (Desktop)"></iframe>
-  <iframe id="frame-mobile" class="frame" src="ping_pong_mobile_v2.html" title="Ping Pong (Mobile)"></iframe>
+  <iframe id="game-frame" title="Ping Pong"></iframe>
 
   <script>
-    // Detectar se é mobile e carregar a versão apropriada
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    
-    const desktopFrame = document.getElementById('frame-desktop');
-    const mobileFrame = document.getElementById('frame-mobile');
+    (() => {
+      const frame = document.getElementById('game-frame');
+      const mobileUserAgent = navigator.userAgentData?.mobile === true ||
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
+      const compactScreen = Math.min(screen.width, screen.height) <= 1024;
+      const useMobileVersion = mobileUserAgent || (coarsePointer && compactScreen);
 
-    if (isMobile) {
-      desktopFrame.classList.remove('active');
-      mobileFrame.classList.add('active');
-    } else {
-      desktopFrame.classList.add('active');
-      mobileFrame.classList.remove('active');
-    }
-
-    // Permitir trocar entre versões com tecla 'V'
-    document.addEventListener('keydown', e => {
-      if (e.key === 'v' || e.key === 'V') {
-        desktopFrame.classList.toggle('active');
-        mobileFrame.classList.toggle('active');
-      }
-    });
+      frame.src = useMobileVersion ? 'ping_pong_mobile_v2.html' : 'ping_pong_desktop.html';
+      frame.title = useMobileVersion ? 'Ping Pong para celular' : 'Ping Pong para desktop';
+    })();
   </script>
-
 </body>
 </html>

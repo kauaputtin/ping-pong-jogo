@@ -2,192 +2,147 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ping Pong — Mobile</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#111111" />
+  <title>Ping Pong | Mobile</title>
   <link rel="stylesheet" href="css/mobile.css" />
+  <script src="js/game-mobile.js" defer></script>
 </head>
 <body>
-
   <h1>Ping Pong</h1>
 
-  <div id="game-frame">
-    <div id="center-col">
-      <div id="field-row">
-        <div id="score-row" aria-label="Placar">
-          <div class="side-score" id="side-left">
-            <span class="score-label" id="label-left">JOGADOR</span>
-            <span class="score" id="score-left">0</span>
+  <main id="game-frame">
+    <div id="field-row">
+      <div id="score-row" aria-label="Placar" aria-live="polite">
+        <div class="side-score" id="side-left">
+          <span class="score-label" id="label-left">CPU (TOPO)</span>
+          <span class="score" id="score-left">0</span>
+        </div>
+
+        <div class="side-score" id="side-right">
+          <span class="score-label" id="label-right">VOCÊ (FUNDO)</span>
+          <span class="score" id="score-right">0</span>
+        </div>
+      </div>
+
+      <div id="field">
+        <canvas
+          id="game-canvas"
+          width="380"
+          height="640"
+          role="application"
+          aria-label="Mesa de ping pong. Arraste na metade do seu jogador para mover a raquete."
+        ></canvas>
+
+        <div id="touch-guide" class="hidden" aria-hidden="true">
+          <div class="guide-row guide-top">
+            <span class="guide-arrow">&lsaquo;</span>
+            <span class="guide-label">JOGADOR 1</span>
+            <span class="guide-arrow">&rsaquo;</span>
           </div>
-
-          <div class="score-sep" aria-hidden="true">:</div>
-
-          <div class="side-score" id="side-right">
-            <span class="score-label" id="label-right">CPU</span>
-            <span class="score" id="score-right">0</span>
+          <div class="guide-row guide-bottom">
+            <span class="guide-arrow">&lsaquo;</span>
+            <span class="guide-label">JOGADOR 2</span>
+            <span class="guide-arrow">&rsaquo;</span>
           </div>
         </div>
 
-        <div id="field">
-          <canvas id="game-canvas"></canvas>
-
-          <div id="touch-guide" class="hidden" aria-hidden="true">
-            <div class="guide-row guide-p1">
-              <span class="guide-arrow">&lsaquo;</span>
-              <span class="guide-label">JOGADOR 1</span>
-              <span class="guide-arrow">&rsaquo;</span>
-            </div>
-            <div class="guide-row guide-p2">
-              <span class="guide-arrow">&lsaquo;</span>
-              <span class="guide-label">JOGADOR 2</span>
-              <span class="guide-arrow">&rsaquo;</span>
-            </div>
+        <div id="overlay">
+          <div id="countdown" class="hidden" role="status" aria-live="assertive">3</div>
+          <div id="winner-message" class="hidden" role="status" aria-live="assertive"></div>
+          <div id="ready-overlay" class="hidden">
+            <span class="control-cue" aria-hidden="true">
+              <svg viewBox="0 0 40 52">
+                <g class="cursor-glyph">
+                  <path d="M7 8v36l9-9 8 17 7-4-8-16h13L7 8Z"></path>
+                </g>
+              </svg>
+            </span>
+            <button id="start-prompt" type="button">Clique para começar</button>
           </div>
 
-          <div id="overlay">
-            <div id="countdown" class="hidden">3</div>
+          <section id="start-menu" role="dialog" aria-modal="true" aria-labelledby="menu-title">
+            <h2 id="menu-title" class="menu-title">Ping Pong The Game</h2>
 
-            <div id="start-menu">
-              <h2 class="menu-title">Ping Pong The Game</h2>
-
-              <div class="menu-screen is-active" data-menu-screen="mainMenu">
-                <div class="menu-actions">
-                  <button class="menu-btn primary" id="play-menu-main" type="button">Jogar</button>
-                  <button class="menu-btn" id="settings-menu" type="button">Configurações</button>
-                </div>
-              </div>
-
-              <div class="menu-header">
-                <h2>Ping Pong The Game</h2>
+            <div class="menu-screen is-active" data-menu-screen="mainMenu">
+              <div class="menu-actions main-actions">
                 <button class="menu-btn primary" id="play-menu" type="button">Jogar</button>
-                <button id="settings-toggle" class="icon-btn" type="button" aria-label="Configurações" aria-expanded="false">
+                <button id="settings-menu" class="icon-btn" type="button" aria-label="Abrir configurações">
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"></path>
                     <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.05.05a2.05 2.05 0 0 1-2.9 2.9l-.05-.05a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21a2.05 2.05 0 0 1-4.1 0v-.08A1.7 1.7 0 0 0 8.8 19.36a1.7 1.7 0 0 0-1.88.34l-.05.05a2.05 2.05 0 0 1-2.9-2.9l.05-.05A1.7 1.7 0 0 0 4.36 15a1.7 1.7 0 0 0-1.56-1.03H2.7a2.05 2.05 0 0 1 0-4.1h.08A1.7 1.7 0 0 0 4.34 8.84a1.7 1.7 0 0 0-.34-1.88l-.05-.05a2.05 2.05 0 0 1 2.9-2.9l.05.05a1.7 1.7 0 0 0 1.88.34h.02A1.7 1.7 0 0 0 9.83 2.8V2.7a2.05 2.05 0 0 1 4.1 0v.08A1.7 1.7 0 0 0 15 4.34a1.7 1.7 0 0 0 1.88-.34l.05-.05a2.05 2.05 0 0 1 2.9 2.9l-.05.05A1.7 1.7 0 0 0 19.44 8.8v.02A1.7 1.7 0 0 0 21 9.85h.08a2.05 2.05 0 0 1 0 4.1H21A1.7 1.7 0 0 0 19.4 15Z"></path>
                   </svg>
                 </button>
               </div>
-
-              <div id="settings-panel" class="settings-panel menu-screen" data-menu-screen="settingsMenu">
-                <div class="setting-group">
-                  <h3>Velocidade da bola:</h3>
-                  <div class="option-row" role="group" aria-label="Velocidade da bola">
-                    <button class="option-btn" type="button" data-setting="ballSpeed" data-value="slow">Lenta</button>
-                    <button class="option-btn active" type="button" data-setting="ballSpeed" data-value="normal">Normal</button>
-                    <button class="option-btn" type="button" data-setting="ballSpeed" data-value="fast">Rápida</button>
-                  </div>
-                </div>
-
-                <div class="setting-group">
-                  <h3>Pontos para vencer:</h3>
-                  <div class="option-row" role="group" aria-label="Pontos para vencer">
-                    <button class="option-btn active" type="button" data-setting="winningScore" data-value="5">5</button>
-                    <button class="option-btn" type="button" data-setting="winningScore" data-value="10">10</button>
-                    <button class="option-btn" type="button" data-setting="winningScore" data-value="15">15</button>
-                  </div>
-                </div>
-
-                <div class="setting-group">
-                  <h3>Tipo de controle:</h3>
-                  <div class="control-options" role="group" aria-label="Tipo de controle">
-                    <button class="option-btn active" type="button" data-setting="controlType" data-value="drag">Arrastar a raquete com o dedo</button>
-                    <button class="option-btn" type="button" data-setting="controlType" data-value="buttons">Botões na tela &uarr; &darr;</button>
-                  </div>
-                </div>
-                <div class="menu-actions">
-                  <button class="menu-btn back-btn" type="button" data-menu-back>Voltar</button>
-                </div>
-              </div>
-
-              <div id="mode-menu" class="menu-screen" data-menu-screen="playMenu">
-                <h3>Escolha o modo de jogo</h3>
-                <p>O jogo começa após 3 segundos</p>
-                <div class="menu-actions">
-                  <button class="menu-btn" id="menu-1p">1 Jogador</button>
-                  <button class="menu-btn" id="menu-2p">2 Jogadores</button>
-                  <button class="menu-btn back-btn" type="button" data-menu-back>Voltar</button>
-                </div>
-              </div>
             </div>
 
-            <div id="difficulty-menu" class="hidden">
-              <h2>Escolha o nível</h2>
+            <div class="menu-screen" data-menu-screen="playMenu" hidden>
+              <h3>Escolha o modo de jogo</h3>
+              <p>O jogo começa após 3 segundos</p>
               <div class="menu-actions">
-                <button class="menu-btn" id="diff-easy">Fácil</button>
-                <button class="menu-btn" id="diff-medium">Médio</button>
-                <button class="menu-btn" id="diff-pro">Pro</button>
+                <button class="menu-btn" id="menu-1p" type="button">1 Jogador</button>
+                <button class="menu-btn" id="menu-2p" type="button">2 Jogadores</button>
+                <button class="menu-btn back-btn" type="button" data-menu-back>
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M19 12H5"></path>
+                    <path d="m12 19-7-7 7-7"></path>
+                  </svg>
+                  <span>Voltar</span>
+                </button>
               </div>
             </div>
-          </div>
+
+            <div class="menu-screen" data-menu-screen="difficultyMenu" hidden>
+              <h3>Escolha a dificuldade</h3>
+              <div class="menu-actions">
+                <button class="menu-btn" type="button" data-difficulty="easy">Fácil</button>
+                <button class="menu-btn" type="button" data-difficulty="medium">Médio</button>
+                <button class="menu-btn" type="button" data-difficulty="pro">Pro</button>
+                <button class="menu-btn back-btn" type="button" data-menu-back="playMenu">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M19 12H5"></path>
+                    <path d="m12 19-7-7 7-7"></path>
+                  </svg>
+                  <span>Voltar</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="menu-screen settings-menu-screen" data-menu-screen="settingsMenu" hidden>
+              <h3>Configurações</h3>
+              <fieldset class="setting-group">
+                <legend>Pontos para vencer</legend>
+                <div class="segmented-control" role="group" aria-label="Pontos para vencer">
+                  <button type="button" data-winning-score="3" aria-pressed="false">3</button>
+                  <button type="button" data-winning-score="5" aria-pressed="false">5</button>
+                  <button type="button" data-winning-score="7" aria-pressed="false">7</button>
+                  <button type="button" data-winning-score="10" aria-pressed="false">10</button>
+                </div>
+              </fieldset>
+              <div class="menu-actions settings-actions">
+                <button class="menu-btn back-btn" type="button" data-menu-back>
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M19 12H5"></path>
+                    <path d="m12 19-7-7 7-7"></path>
+                  </svg>
+                  <span>Voltar</span>
+                </button>
+              </div>
+            </div>
+          </section>
         </div>
       </div>
-
     </div>
-  </div>
+  </main>
 
-  <div id="controls">
-    <button id="btn-menu" onclick="GameMobile.openMenu()">Menu</button>
-    <button id="btn-pause" onclick="GameMobile.togglePause()" disabled>Pausar</button>
-    <button id="btn-reset" onclick="GameMobile.reset()">Reiniciar</button>
-    <button id="btn-difficulty" class="hidden" onclick="GameMobile.openDifficultyMenu()">Dificuldade</button>
-  </div>
+  <nav id="controls" aria-label="Controles da partida">
+    <button id="btn-menu" type="button">Menu</button>
+    <button id="btn-pause" type="button" disabled>Pausar</button>
+    <button id="btn-reset" type="button">Reiniciar</button>
+    <button id="btn-settings" type="button">Config.</button>
+  </nav>
 
-  <div id="touch-buttons" class="hidden" aria-label="Botões de controle">
-    <button id="touch-up" type="button" aria-label="Mover para cima">&uarr;</button>
-    <button id="touch-down" type="button" aria-label="Mover para baixo">&darr;</button>
-  </div>
-
-  <p class="hint" id="hint">Toque para mover a raquete</p>
-  <p id="msg">Escolha o modo de jogo</p>
-
-  <script src="js/game-mobile.js"></script>
-  <script>
-    // Resize canvas to fit window
-    let resizeFrame = null;
-
-    function scheduleResizeCanvas() {
-      if (resizeFrame) cancelAnimationFrame(resizeFrame);
-      resizeFrame = requestAnimationFrame(resizeCanvas);
-    }
-
-    function resizeCanvas() {
-      resizeFrame = null;
-      const canvas = document.getElementById('game-canvas');
-      const field = document.getElementById('field');
-      const h1 = document.querySelector('h1');
-      const controls = document.getElementById('controls');
-      
-      // Aspect ratio original do canvas (ajustar conforme necessário)
-      const aspectRatio = 380 / 640;
-      
-      const viewportHeight = window.visualViewport?.height || window.innerHeight;
-      const headerHeight = h1?.offsetHeight || 40;
-      const footerHeight = (controls?.offsetHeight || 40) + 48;
-      const availableHeight = Math.max(260, viewportHeight - headerHeight - footerHeight);
-      const availableWidth = Math.min(window.innerWidth - 16, 520);
-      
-      // Calcular tamanho máximo
-      let width = availableWidth;
-      let height = width / aspectRatio;
-      
-      if (height > availableHeight) {
-        height = availableHeight;
-        width = height * aspectRatio;
-      }
-      
-      // Usar CSS para redimensionar
-      field.style.width = width + 'px';
-      field.style.height = height + 'px';
-      
-      // Manter proporção do canvas
-      canvas.style.width = '100%';
-      canvas.style.height = '100%';
-    }
-    
-    window.addEventListener('resize', scheduleResizeCanvas);
-    window.visualViewport?.addEventListener('resize', scheduleResizeCanvas);
-    window.addEventListener('load', resizeCanvas);
-    resizeCanvas();
-  </script>
-
+  <p class="hint" id="hint">Arraste para mover a raquete</p>
+  <p id="msg" role="status" aria-live="polite">Escolha o modo de jogo</p>
 </body>
 </html>
