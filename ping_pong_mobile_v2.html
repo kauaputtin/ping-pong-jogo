@@ -47,6 +47,15 @@
             <div id="countdown" class="hidden">3</div>
 
             <div id="start-menu">
+              <h2 class="menu-title">Ping Pong The Game</h2>
+
+              <div class="menu-screen is-active" data-menu-screen="mainMenu">
+                <div class="menu-actions">
+                  <button class="menu-btn primary" id="play-menu-main" type="button">Jogar</button>
+                  <button class="menu-btn" id="settings-menu" type="button">Configurações</button>
+                </div>
+              </div>
+
               <div class="menu-header">
                 <h2>Ping Pong The Game</h2>
                 <button class="menu-btn primary" id="play-menu" type="button">Jogar</button>
@@ -58,7 +67,7 @@
                 </button>
               </div>
 
-              <div id="settings-panel" class="settings-panel hidden">
+              <div id="settings-panel" class="settings-panel menu-screen" data-menu-screen="settingsMenu">
                 <div class="setting-group">
                   <h3>Velocidade da bola:</h3>
                   <div class="option-row" role="group" aria-label="Velocidade da bola">
@@ -84,13 +93,18 @@
                     <button class="option-btn" type="button" data-setting="controlType" data-value="buttons">Botões na tela &uarr; &darr;</button>
                   </div>
                 </div>
+                <div class="menu-actions">
+                  <button class="menu-btn back-btn" type="button" data-menu-back>Voltar</button>
+                </div>
               </div>
 
-              <div id="mode-menu" class="hidden">
+              <div id="mode-menu" class="menu-screen" data-menu-screen="playMenu">
+                <h3>Escolha o modo de jogo</h3>
                 <p>O jogo começa após 3 segundos</p>
                 <div class="menu-actions">
                   <button class="menu-btn" id="menu-1p">1 Jogador</button>
                   <button class="menu-btn" id="menu-2p">2 Jogadores</button>
+                  <button class="menu-btn back-btn" type="button" data-menu-back>Voltar</button>
                 </div>
               </div>
             </div>

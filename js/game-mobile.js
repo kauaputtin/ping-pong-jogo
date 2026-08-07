@@ -86,14 +86,16 @@ const GameMobile = (() => {
   const difficultyMenuEl = document.getElementById('difficulty-menu');
   const countdownEl = document.getElementById('countdown');
   const playMenuBtn = document.getElementById('play-menu');
+  const playMenuMainBtn = document.getElementById('play-menu-main');
   const menu1pBtn = document.getElementById('menu-1p');
   const menu2pBtn = document.getElementById('menu-2p');
   const diffEasyBtn = document.getElementById('diff-easy');
   const diffMediumBtn = document.getElementById('diff-medium');
   const diffProBtn = document.getElementById('diff-pro');
   const settingsToggleBtn = document.getElementById('settings-toggle');
-  const settingsPanelEl = document.getElementById('settings-panel');
-  const modeMenuEl = document.getElementById('mode-menu');
+  const settingsMenuBtn = document.getElementById('settings-menu');
+  const menuScreens = document.querySelectorAll('[data-menu-screen]');
+  const menuBackBtns = document.querySelectorAll('[data-menu-back]');
   const optionBtns = document.querySelectorAll('.option-btn[data-setting]');
   const touchButtonsEl = document.getElementById('touch-buttons');
   const touchUpBtn = document.getElementById('touch-up');
@@ -106,15 +108,19 @@ const GameMobile = (() => {
   let topTouchX = null;
   let bottomTouchX = null;
   let buttonControlDirection = 0;
+  let currentMenuScreen = 'mainMenu';
 
   // ── Event Listeners ──────────────────────────────────
   if (playMenuBtn) playMenuBtn.addEventListener('click', showModeMenu);
-  if (menu1pBtn) menu1pBtn.addEventListener('click', () => showDifficultyMenu());
+  if (playMenuMainBtn) playMenuMainBtn.addEventListener('click', showModeMenu);
+  if (menu1pBtn) menu1pBtn.addEventListener('click', () => startNewMatch('cpu', difficulty));
   if (menu2pBtn) menu2pBtn.addEventListener('click', () => startNewMatch('pvp'));
   if (diffEasyBtn) diffEasyBtn.addEventListener('click', () => startNewMatch('cpu', 'easy'));
   if (diffMediumBtn) diffMediumBtn.addEventListener('click', () => startNewMatch('cpu', 'medium'));
   if (diffProBtn) diffProBtn.addEventListener('click', () => startNewMatch('cpu', 'pro'));
   if (settingsToggleBtn) settingsToggleBtn.addEventListener('click', toggleSettingsPanel);
+  if (settingsMenuBtn) settingsMenuBtn.addEventListener('click', toggleSettingsPanel);
+  menuBackBtns.forEach(btn => btn.addEventListener('click', () => setMenuScreen(btn.dataset.menuBack || 'mainMenu')));
   optionBtns.forEach(btn => btn.addEventListener('click', () => applySetting(btn)));
   bindControlButton(touchUpBtn, -1);
   bindControlButton(touchDownBtn, 1);
@@ -550,15 +556,20 @@ const GameMobile = (() => {
   }
 
   // ── Menu & Dificuldade ───────────────────────────────
+  function setMenuScreen(screenName) {
+    currentMenuScreen = screenName;
+    menuScreens.forEach(screen => {
+      screen.classList.toggle('is-active', screen.dataset.menuScreen === screenName);
+    });
+  }
+
   function toggleSettingsPanel() {
-    if (!settingsPanelEl || !settingsToggleBtn) return;
-    const isHidden = settingsPanelEl.classList.toggle('hidden');
-    settingsToggleBtn.setAttribute('aria-expanded', String(!isHidden));
+    setMenuScreen('settingsMenu');
+    if (settingsToggleBtn) settingsToggleBtn.setAttribute('aria-expanded', 'true');
   }
 
   function showModeMenu() {
-    if (modeMenuEl) modeMenuEl.classList.remove('hidden');
-    if (settingsPanelEl) settingsPanelEl.classList.add('hidden');
+    setMenuScreen('playMenu');
     if (settingsToggleBtn) settingsToggleBtn.setAttribute('aria-expanded', 'false');
   }
 
@@ -629,8 +640,7 @@ const GameMobile = (() => {
     
     if (startMenuEl) startMenuEl.classList.remove('hidden');
     if (difficultyMenuEl) difficultyMenuEl.classList.add('hidden');
-    if (modeMenuEl) modeMenuEl.classList.add('hidden');
-    if (settingsPanelEl) settingsPanelEl.classList.add('hidden');
+    setMenuScreen('mainMenu');
     if (settingsToggleBtn) settingsToggleBtn.setAttribute('aria-expanded', 'false');
     if (countdownEl) {
       countdownEl.classList.add('hidden');
@@ -702,6 +712,7 @@ const GameMobile = (() => {
   initState();
   updateModeUI();
   document.body.classList.add('menu-open');
+  setMenuScreen('mainMenu');
   draw();
 
   return { 
