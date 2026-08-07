@@ -49,8 +49,12 @@
             <div id="start-menu">
               <div class="menu-header">
                 <h2>Ping Pong The Game</h2>
+                <button class="menu-btn primary" id="play-menu" type="button">Jogar</button>
                 <button id="settings-toggle" class="icon-btn" type="button" aria-label="Configurações" aria-expanded="false">
-                  &#9881;
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"></path>
+                    <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.05.05a2.05 2.05 0 0 1-2.9 2.9l-.05-.05a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21a2.05 2.05 0 0 1-4.1 0v-.08A1.7 1.7 0 0 0 8.8 19.36a1.7 1.7 0 0 0-1.88.34l-.05.05a2.05 2.05 0 0 1-2.9-2.9l.05-.05A1.7 1.7 0 0 0 4.36 15a1.7 1.7 0 0 0-1.56-1.03H2.7a2.05 2.05 0 0 1 0-4.1h.08A1.7 1.7 0 0 0 4.34 8.84a1.7 1.7 0 0 0-.34-1.88l-.05-.05a2.05 2.05 0 0 1 2.9-2.9l.05.05a1.7 1.7 0 0 0 1.88.34h.02A1.7 1.7 0 0 0 9.83 2.8V2.7a2.05 2.05 0 0 1 4.1 0v.08A1.7 1.7 0 0 0 15 4.34a1.7 1.7 0 0 0 1.88-.34l.05-.05a2.05 2.05 0 0 1 2.9 2.9l-.05.05A1.7 1.7 0 0 0 19.44 8.8v.02A1.7 1.7 0 0 0 21 9.85h.08a2.05 2.05 0 0 1 0 4.1H21A1.7 1.7 0 0 0 19.4 15Z"></path>
+                  </svg>
                 </button>
               </div>
 
@@ -82,10 +86,12 @@
                 </div>
               </div>
 
-              <p>O jogo começa após 3 segundos</p>
-              <div class="menu-actions">
-                <button class="menu-btn" id="menu-1p">1 Jogador</button>
-                <button class="menu-btn" id="menu-2p">2 Jogadores</button>
+              <div id="mode-menu" class="hidden">
+                <p>O jogo começa após 3 segundos</p>
+                <div class="menu-actions">
+                  <button class="menu-btn" id="menu-1p">1 Jogador</button>
+                  <button class="menu-btn" id="menu-2p">2 Jogadores</button>
+                </div>
               </div>
             </div>
 

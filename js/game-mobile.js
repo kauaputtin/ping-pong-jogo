@@ -85,6 +85,7 @@ const GameMobile = (() => {
   const startMenuEl = document.getElementById('start-menu');
   const difficultyMenuEl = document.getElementById('difficulty-menu');
   const countdownEl = document.getElementById('countdown');
+  const playMenuBtn = document.getElementById('play-menu');
   const menu1pBtn = document.getElementById('menu-1p');
   const menu2pBtn = document.getElementById('menu-2p');
   const diffEasyBtn = document.getElementById('diff-easy');
@@ -92,6 +93,7 @@ const GameMobile = (() => {
   const diffProBtn = document.getElementById('diff-pro');
   const settingsToggleBtn = document.getElementById('settings-toggle');
   const settingsPanelEl = document.getElementById('settings-panel');
+  const modeMenuEl = document.getElementById('mode-menu');
   const optionBtns = document.querySelectorAll('.option-btn[data-setting]');
   const touchButtonsEl = document.getElementById('touch-buttons');
   const touchUpBtn = document.getElementById('touch-up');
@@ -106,6 +108,7 @@ const GameMobile = (() => {
   let buttonControlDirection = 0;
 
   // ── Event Listeners ──────────────────────────────────
+  if (playMenuBtn) playMenuBtn.addEventListener('click', showModeMenu);
   if (menu1pBtn) menu1pBtn.addEventListener('click', () => showDifficultyMenu());
   if (menu2pBtn) menu2pBtn.addEventListener('click', () => startNewMatch('pvp'));
   if (diffEasyBtn) diffEasyBtn.addEventListener('click', () => startNewMatch('cpu', 'easy'));
@@ -553,6 +556,12 @@ const GameMobile = (() => {
     settingsToggleBtn.setAttribute('aria-expanded', String(!isHidden));
   }
 
+  function showModeMenu() {
+    if (modeMenuEl) modeMenuEl.classList.remove('hidden');
+    if (settingsPanelEl) settingsPanelEl.classList.add('hidden');
+    if (settingsToggleBtn) settingsToggleBtn.setAttribute('aria-expanded', 'false');
+  }
+
   function applySetting(btn) {
     const setting = btn.dataset.setting;
     const value = btn.dataset.value;
@@ -620,6 +629,7 @@ const GameMobile = (() => {
     
     if (startMenuEl) startMenuEl.classList.remove('hidden');
     if (difficultyMenuEl) difficultyMenuEl.classList.add('hidden');
+    if (modeMenuEl) modeMenuEl.classList.add('hidden');
     if (settingsPanelEl) settingsPanelEl.classList.add('hidden');
     if (settingsToggleBtn) settingsToggleBtn.setAttribute('aria-expanded', 'false');
     if (countdownEl) {
