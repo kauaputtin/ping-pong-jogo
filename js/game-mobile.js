@@ -28,7 +28,6 @@ const GameMobile = (() => {
   const MAX_RALLY_SPEED_MULTIPLIER = 2;
   const POWER_UP_MIN_SPAWN_SECONDS = 10;
   const POWER_UP_MAX_SPAWN_SECONDS = 20;
-  const POWER_UP_VISIBLE_SECONDS = 8;
   const POWER_UP_RADIUS = 18;
   const POWER_UP_SPEED_MULTIPLIER = 2;
   const POWER_UP_SAFE_MARGIN_X = 42;
@@ -89,9 +88,7 @@ const GameMobile = (() => {
     resumeButton: document.getElementById('btn-resume'),
     resetButton: document.getElementById('btn-reset'),
     resetConfirmButton: document.getElementById('btn-reset-confirm'),
-    resetCancelButton: document.getElementById('btn-reset-cancel'),
-    settingsButton: document.getElementById('btn-settings'),
-    pauseSettingsBackButton: document.getElementById('btn-pause-settings-back')
+    resetCancelButton: document.getElementById('btn-reset-cancel')
   };
 
   const menuScreens = Array.from(document.querySelectorAll('[data-menu-screen]'));
@@ -268,7 +265,6 @@ const GameMobile = (() => {
       spawn: {
         phase: PowerUpPhase.WAITING,
         cooldown: getRandomPowerUpDelay(),
-        visibleRemaining: 0,
         x: 0,
         y: 0,
         side: null
@@ -284,15 +280,14 @@ const GameMobile = (() => {
   }
 
   function resetPowerUpRound() {
-    const { sideStreak } = powerUp;
-    powerUp = createPowerUpState();
-    powerUp.sideStreak = sideStreak;
+    powerUp.charged.top = false;
+    powerUp.charged.bottom = false;
+    deactivateBallPower();
   }
 
   function scheduleNextPowerUp(phase) {
     powerUp.spawn.phase = phase;
     powerUp.spawn.cooldown = getRandomPowerUpDelay();
-    powerUp.spawn.visibleRemaining = 0;
     powerUp.spawn.x = 0;
     powerUp.spawn.y = 0;
     powerUp.spawn.side = null;
@@ -338,18 +333,13 @@ const GameMobile = (() => {
 
     powerUp.spawn.phase = PowerUpPhase.VISIBLE;
     powerUp.spawn.cooldown = 0;
-    powerUp.spawn.visibleRemaining = POWER_UP_VISIBLE_SECONDS;
     powerUp.spawn.x = x;
     powerUp.spawn.y = y;
     powerUp.spawn.side = side;
   }
 
   function updatePowerUp(deltaSeconds) {
-    if (powerUp.spawn.phase === PowerUpPhase.VISIBLE) {
-      powerUp.spawn.visibleRemaining -= deltaSeconds;
-      if (powerUp.spawn.visibleRemaining <= 0) scheduleNextPowerUp(PowerUpPhase.WAITING);
-      return;
-    }
+    if (powerUp.spawn.phase === PowerUpPhase.VISIBLE) return;
 
     powerUp.spawn.cooldown -= deltaSeconds;
     if (powerUp.spawn.cooldown <= 0) spawnPowerUp();
@@ -1143,8 +1133,6 @@ const GameMobile = (() => {
   elements.resetButton.addEventListener('click', () => setPauseScreen('restartConfirm'));
   elements.resetConfirmButton.addEventListener('click', resetMatch);
   elements.resetCancelButton.addEventListener('click', () => setPauseScreen('actions'));
-  elements.settingsButton.addEventListener('click', () => setPauseScreen('settings'));
-  elements.pauseSettingsBackButton.addEventListener('click', () => setPauseScreen('actions'));
   menuBackButtons.forEach(button => {
     button.addEventListener('click', () => setMenuScreen(button.dataset.menuBack || 'mainMenu'));
   });

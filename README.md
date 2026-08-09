@@ -22,11 +22,11 @@ Ao continuar uma partida pausada no mobile, uma nova contagem de três segundos 
 
 ## Configurações
 
-A tela de configurações permite escolher a pontuação necessária para vencer. A dificuldade da CPU é selecionada ao entrar no modo de um jogador.
+A tela de configurações, acessível somente pelo menu principal, permite escolher a pontuação necessária para vencer. A dificuldade da CPU é selecionada ao entrar no modo de um jogador.
 
 ## Power-up mobile
 
-Na versão mobile, a bola pode coletar o power-up de fogo que surge aleatoriamente no campo. O jogador dono daquele lado carrega uma tacada especial para sua próxima rebatida, que transfere o fogo para a bola e dobra sua velocidade até o adversário devolver ou a jogada terminar.
+Na versão mobile, a bola pode coletar o power-up de fogo que surge aleatoriamente no campo e permanece visível até ser atingido. O jogador dono daquele lado carrega uma tacada especial para sua próxima rebatida, que transfere o fogo para a bola e dobra sua velocidade até o adversário devolver ou a jogada terminar.
 
 ## Controles
 
