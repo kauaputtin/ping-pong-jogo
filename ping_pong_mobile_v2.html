@@ -51,13 +51,6 @@
           <div id="countdown" class="hidden" role="status" aria-live="assertive">3</div>
           <div id="winner-message" class="hidden" role="status" aria-live="assertive"></div>
           <div id="ready-overlay" class="hidden">
-            <span class="control-cue" aria-hidden="true">
-              <svg viewBox="0 0 40 52">
-                <g class="cursor-glyph">
-                  <path d="M7 8v36l9-9 8 17 7-4-8-16h13L7 8Z"></path>
-                </g>
-              </svg>
-            </span>
             <button id="start-prompt" type="button">Clique para começar</button>
           </div>
 
@@ -130,16 +123,23 @@
               </div>
             </div>
           </section>
+
+          <section id="pause-menu" class="hidden" role="dialog" aria-modal="true" aria-labelledby="pause-menu-title">
+            <h2 id="pause-menu-title" class="menu-title">Pausado</h2>
+            <div class="menu-actions pause-actions">
+              <button class="menu-btn primary" id="btn-resume" type="button">Continuar</button>
+              <button class="menu-btn" id="btn-menu" type="button">Menu</button>
+              <button class="menu-btn" id="btn-reset" type="button">Reiniciar</button>
+              <button class="menu-btn" id="btn-settings" type="button">Configurações</button>
+            </div>
+          </section>
         </div>
       </div>
     </div>
   </main>
 
   <nav id="controls" aria-label="Controles da partida">
-    <button id="btn-menu" type="button">Menu</button>
-    <button id="btn-pause" type="button" disabled>Pausar</button>
-    <button id="btn-reset" type="button">Reiniciar</button>
-    <button id="btn-settings" type="button">Config.</button>
+    <button id="btn-pause" type="button" aria-controls="pause-menu" aria-expanded="false" disabled>Pausar</button>
   </nav>
 
   <p class="hint" id="hint">Arraste para mover a raquete</p>

@@ -11,7 +11,7 @@ const GameMobile = (() => {
   const PADDLE_WIDTH = 90;
   const PADDLE_HEIGHT = 8;
   const BALL_RADIUS = 6;
-  const BALL_SPEED = 350;
+  const BALL_SPEED = 420;
   const DRAG_PADDLE_SPEED = 1200;
   const DEFAULT_WINNING_SCORE = 5;
   const WINNING_SCORE_OPTIONS = Object.freeze([3, 5, 7, 10]);
@@ -31,15 +31,16 @@ const GameMobile = (() => {
   });
 
   const CPU_SETTINGS = Object.freeze({
-    easy: { ballSpeed: 280, maxSpeed: 170, reactionTime: 0.18, error: 52, aim: 0 },
-    medium: { ballSpeed: 350, maxSpeed: 270, reactionTime: 0.09, error: 22, aim: 0.25 },
-    pro: { ballSpeed: 430, maxSpeed: 390, reactionTime: 0.045, error: 7, aim: 0.45 }
+    easy: { ballSpeed: 336, maxSpeed: 170, reactionTime: 0.18, error: 52, aim: 0 },
+    medium: { ballSpeed: 420, maxSpeed: 270, reactionTime: 0.09, error: 22, aim: 0.25 },
+    pro: { ballSpeed: 516, maxSpeed: 390, reactionTime: 0.045, error: 7, aim: 0.45 }
   });
 
   const elements = {
     field: document.getElementById('field'),
     overlay: document.getElementById('overlay'),
     startMenu: document.getElementById('start-menu'),
+    pauseMenu: document.getElementById('pause-menu'),
     readyOverlay: document.getElementById('ready-overlay'),
     startPrompt: document.getElementById('start-prompt'),
     countdown: document.getElementById('countdown'),
@@ -58,6 +59,7 @@ const GameMobile = (() => {
     twoPlayers: document.getElementById('menu-2p'),
     menuButton: document.getElementById('btn-menu'),
     pauseButton: document.getElementById('btn-pause'),
+    resumeButton: document.getElementById('btn-resume'),
     resetButton: document.getElementById('btn-reset'),
     settingsButton: document.getElementById('btn-settings')
   };
@@ -620,6 +622,7 @@ const GameMobile = (() => {
     state = GameState.PAUSED;
     stopLoop();
     clearInput();
+    showPauseMenu();
     setMessage(message);
     updateControlUI();
   }
@@ -627,6 +630,7 @@ const GameMobile = (() => {
   function resumeGame() {
     if (state !== GameState.PAUSED) return;
 
+    hidePauseMenu();
     state = resumeState === GameState.COUNTDOWN && countdownRemaining > 0
       ? GameState.COUNTDOWN
       : GameState.PLAYING;
@@ -638,6 +642,19 @@ const GameMobile = (() => {
   function togglePause() {
     if (state === GameState.PAUSED) resumeGame();
     else if (state === GameState.PLAYING) pauseGame();
+  }
+
+  function showPauseMenu() {
+    elements.pauseMenu.classList.remove('hidden');
+    elements.overlay.classList.add('pause-open');
+    elements.pauseButton.setAttribute('aria-expanded', 'true');
+    elements.resumeButton.focus();
+  }
+
+  function hidePauseMenu() {
+    elements.pauseMenu.classList.add('hidden');
+    elements.overlay.classList.remove('pause-open');
+    elements.pauseButton.setAttribute('aria-expanded', 'false');
   }
 
   function setMenuScreen(screenName) {
@@ -655,6 +672,7 @@ const GameMobile = (() => {
 
   function openMenu(screenName = 'mainMenu') {
     stopLoop();
+    hidePauseMenu();
     state = GameState.MENU;
     countdownRemaining = 0;
     lastCountdownValue = null;
@@ -679,6 +697,7 @@ const GameMobile = (() => {
     if (!['cpu', 'pvp'].includes(selectedMode)) return;
 
     stopLoop();
+    hidePauseMenu();
     mode = selectedMode;
     clearInput();
     initMatch(true);
@@ -808,6 +827,7 @@ const GameMobile = (() => {
   elements.startPrompt.addEventListener('click', startPreparedMatch);
   elements.menuButton.addEventListener('click', () => openMenu());
   elements.pauseButton.addEventListener('click', togglePause);
+  elements.resumeButton.addEventListener('click', resumeGame);
   elements.resetButton.addEventListener('click', resetMatch);
   elements.settingsButton.addEventListener('click', () => openMenu('settingsMenu'));
   menuBackButtons.forEach(button => {
