@@ -5,6 +5,15 @@ const Game = (() => {
   const ctx = canvas.getContext('2d', { alpha: false });
   const backgroundCanvas = document.createElement('canvas');
   const backgroundCtx = backgroundCanvas.getContext('2d', { alpha: false });
+  const powerUpImage = new Image();
+  powerUpImage.decoding = 'async';
+  powerUpImage.src = 'img/logo.png';
+  const icePowerUpImage = new Image();
+  icePowerUpImage.decoding = 'async';
+  icePowerUpImage.src = 'img/gelo.png';
+  const growPowerUpImage = new Image();
+  growPowerUpImage.decoding = 'async';
+  growPowerUpImage.src = 'img/aumenta.webp';
 
   const WIDTH = 1196;
   const HEIGHT = 610;
@@ -13,6 +22,8 @@ const Game = (() => {
   const BALL_RADIUS = 9;
   const BALL_SPEED = 1100;
   const KEYBOARD_PADDLE_SPEED = 1150;
+  const FIELD_DISPLAY_SCALE = 0.86;
+  const MAX_FIELD_WIDTH = 1136;
   const DEFAULT_WINNING_SCORE = 10;
   const WINNING_SCORE_OPTIONS = Object.freeze([3, 5, 7, 10]);
   const WINNING_SCORE_STORAGE_KEY = 'ping-pong-winning-score';
@@ -20,6 +31,16 @@ const Game = (() => {
   const RALLY_SPEEDUP_EVERY_HITS = 4;
   const RALLY_SPEEDUP_STEP = 0.10;
   const MAX_RALLY_SPEED_MULTIPLIER = 2;
+  const POWER_UP_MIN_SPAWN_SECONDS = 10;
+  const POWER_UP_MAX_SPAWN_SECONDS = 20;
+  const POWER_UP_RADIUS = 22;
+  const POWER_UP_SPEED_MULTIPLIER = 2;
+  const POWER_UP_SAFE_MARGIN_Y = 42;
+  const POWER_UP_CENTER_GAP = 55;
+  const POWER_UP_PADDLE_GAP = 50;
+  const ICE_FREEZE_SECONDS = 2;
+  const GROW_EFFECT_SECONDS = 5;
+  const GROW_PADDLE_MULTIPLIER = 2;
 
   const GameState = Object.freeze({
     MENU: 'MENU',
@@ -30,6 +51,18 @@ const Game = (() => {
     GAME_OVER: 'GAME_OVER'
   });
 
+  const CountdownMode = Object.freeze({
+    START_MATCH: 'START_MATCH',
+    RESUME_MATCH: 'RESUME_MATCH'
+  });
+
+  const PowerUpType = Object.freeze({
+    FIRE: 'FIRE',
+    ICE: 'ICE',
+    GROW: 'GROW'
+  });
+  const POWER_UP_TYPES = Object.freeze(Object.values(PowerUpType));
+
   const CPU_SETTINGS = Object.freeze({
     easy: { ballSpeed: 1000, maxSpeed: 165, reactionTime: 0.18, error: 58, aim: 0 },
     medium: { ballSpeed: 1100, maxSpeed: 245, reactionTime: 0.09, error: 24, aim: 0.25 },
@@ -38,11 +71,15 @@ const Game = (() => {
 
   const elements = {
     container: document.getElementById('game-container'),
+    controls: document.getElementById('controls'),
     overlay: document.getElementById('overlay'),
     startMenu: document.getElementById('start-menu'),
+    menuLogo: document.getElementById('menu-logo'),
+    pauseMenu: document.getElementById('pause-menu'),
     readyOverlay: document.getElementById('ready-overlay'),
     startPrompt: document.getElementById('start-prompt'),
     countdown: document.getElementById('countdown'),
+    gameOverPanel: document.getElementById('game-over-panel'),
     winnerMessage: document.getElementById('winner-message'),
     labelLeft: document.getElementById('label-left'),
     labelRight: document.getElementById('label-right'),
@@ -56,11 +93,16 @@ const Game = (() => {
     twoPlayers: document.getElementById('menu-2p'),
     menuButton: document.getElementById('btn-menu'),
     pauseButton: document.getElementById('btn-pause'),
+    resumeButton: document.getElementById('btn-resume'),
     resetButton: document.getElementById('btn-reset'),
-    settingsButton: document.getElementById('btn-settings')
+    resetConfirmButton: document.getElementById('btn-reset-confirm'),
+    resetCancelButton: document.getElementById('btn-reset-cancel'),
+    gameOverResetButton: document.getElementById('btn-game-over-reset'),
+    gameOverMenuButton: document.getElementById('btn-game-over-menu')
   };
 
   const menuScreens = Array.from(document.querySelectorAll('[data-menu-screen]'));
+  const pauseScreens = Array.from(document.querySelectorAll('[data-pause-screen]'));
   const menuBackButtons = Array.from(document.querySelectorAll('[data-menu-back]'));
   const difficultyButtons = Array.from(document.querySelectorAll('[data-difficulty]'));
   const winningScoreButtons = Array.from(document.querySelectorAll('[data-winning-score]'));
@@ -80,6 +122,7 @@ const Game = (() => {
   let lastFrameTime = 0;
   let countdownRemaining = 0;
   let lastCountdownValue = null;
+  let countdownMode = CountdownMode.START_MATCH;
   let pixelRatio = 0;
   let resizeFrameId = null;
   let canvasRect = { left: 0, top: 0, width: 1, height: 1 };
@@ -87,6 +130,7 @@ const Game = (() => {
   let cpuTargetY = HEIGHT / 2;
   let cpuDecisionTimer = 0;
   let rallyHits = 0;
+  let powerUp = createPowerUpState();
 
   const pressedKeys = new Set();
 
@@ -134,17 +178,19 @@ const Game = (() => {
     const viewportWidth = window.innerWidth;
     const headerHeight = document.querySelector('h1')?.getBoundingClientRect().height || 0;
     const scoreboardHeight = document.getElementById('scoreboard')?.getBoundingClientRect().height || 0;
-    const controlsHeight = elements.menuButton?.parentElement?.getBoundingClientRect().height || 0;
+    const controlsHeight = elements.controls?.getBoundingClientRect().height || 0;
     const hintHeight = elements.hint?.getBoundingClientRect().height || 0;
     const messageHeight = elements.message?.getBoundingClientRect().height || 0;
     const availableHeight = Math.max(180, viewportHeight - headerHeight - scoreboardHeight - controlsHeight - hintHeight - messageHeight - 62);
     const availableWidth = Math.max(320, viewportWidth - 32);
 
-    let width = Math.min(availableWidth, 1196);
+    const maxWidth = Math.min(availableWidth * FIELD_DISPLAY_SCALE, MAX_FIELD_WIDTH);
+    const maxHeight = availableHeight * FIELD_DISPLAY_SCALE;
+    let width = maxWidth;
     let height = width * (HEIGHT / WIDTH);
 
-    if (height > availableHeight) {
-      height = availableHeight;
+    if (height > maxHeight) {
+      height = maxHeight;
       width = height * (WIDTH / HEIGHT);
     }
 
@@ -170,7 +216,228 @@ const Game = (() => {
     mouseTargetY = null;
   }
 
+  function randomBetween(min, max) {
+    return min + Math.random() * (max - min);
+  }
+
+  function getRandomPowerUpDelay() {
+    return randomBetween(POWER_UP_MIN_SPAWN_SECONDS, POWER_UP_MAX_SPAWN_SECONDS);
+  }
+
+  function createPowerUpState() {
+    return {
+      spawn: { cooldown: getRandomPowerUpDelay() },
+      pickups: { left: null, right: null },
+      charged: { left: false, right: false },
+      ballEffect: { active: false, owner: null },
+      effects: {
+        frozen: { left: 0, right: 0 },
+        enlarged: { left: 0, right: 0 }
+      },
+      sideStreak: { side: null, count: 0 }
+    };
+  }
+
+  function resetPowerUpState() {
+    powerUp = createPowerUpState();
+  }
+
+  function resetPowerUpRound() {
+    powerUp.spawn.cooldown = getRandomPowerUpDelay();
+    powerUp.pickups.left = null;
+    powerUp.pickups.right = null;
+    powerUp.charged.left = false;
+    powerUp.charged.right = false;
+    powerUp.effects.frozen.left = 0;
+    powerUp.effects.frozen.right = 0;
+    powerUp.effects.enlarged.left = 0;
+    powerUp.effects.enlarged.right = 0;
+    setPaddleHeight('left', PADDLE_HEIGHT);
+    setPaddleHeight('right', PADDLE_HEIGHT);
+    deactivateBallPower();
+  }
+
+  function scheduleNextPowerUp() {
+    powerUp.spawn.cooldown = getRandomPowerUpDelay();
+  }
+
+  function getAvailablePowerUpSides() {
+    return ['left', 'right'].filter(side => !powerUp.pickups[side]);
+  }
+
+  function choosePowerUpSide(availableSides) {
+    if (availableSides.length === 0) return null;
+
+    const streak = powerUp.sideStreak;
+    let side;
+
+    if (availableSides.length === 1) {
+      [side] = availableSides;
+    } else {
+      side = streak.side && streak.count >= 2
+        ? (streak.side === 'left' ? 'right' : 'left')
+        : availableSides[Math.floor(Math.random() * availableSides.length)];
+    }
+
+    if (side === streak.side) streak.count += 1;
+    else {
+      streak.side = side;
+      streak.count = 1;
+    }
+    return side;
+  }
+
+  function choosePowerUpType() {
+    return POWER_UP_TYPES[Math.floor(Math.random() * POWER_UP_TYPES.length)];
+  }
+
+  function spawnPowerUp() {
+    const availableSides = getAvailablePowerUpSides();
+    const side = choosePowerUpSide(availableSides);
+    if (!side) return false;
+
+    const minX = side === 'left'
+      ? leftPaddle.x + leftPaddle.w + POWER_UP_RADIUS + POWER_UP_PADDLE_GAP
+      : WIDTH / 2 + POWER_UP_CENTER_GAP + POWER_UP_RADIUS;
+    const maxX = side === 'left'
+      ? WIDTH / 2 - POWER_UP_CENTER_GAP - POWER_UP_RADIUS
+      : rightPaddle.x - POWER_UP_RADIUS - POWER_UP_PADDLE_GAP;
+    const minY = POWER_UP_SAFE_MARGIN_Y + POWER_UP_RADIUS;
+    const maxY = HEIGHT - POWER_UP_SAFE_MARGIN_Y - POWER_UP_RADIUS;
+
+    let x = (minX + maxX) / 2;
+    let y = HEIGHT / 2;
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      const candidateX = randomBetween(minX, maxX);
+      const candidateY = randomBetween(minY, maxY);
+      const safeFromBall = !ball || Math.hypot(candidateX - ball.x, candidateY - ball.y) > POWER_UP_RADIUS + ball.r + 54;
+
+      x = candidateX;
+      y = candidateY;
+      if (safeFromBall) break;
+    }
+
+    powerUp.pickups[side] = {
+      x,
+      y,
+      side,
+      type: choosePowerUpType()
+    };
+    scheduleNextPowerUp();
+    return true;
+  }
+
+  function updatePowerUp(deltaSeconds) {
+    updateTimedPowerEffects(deltaSeconds);
+
+    if (powerUp.pickups.left && powerUp.pickups.right) return;
+
+    powerUp.spawn.cooldown -= deltaSeconds;
+    if (powerUp.spawn.cooldown <= 0) spawnPowerUp();
+  }
+
+  function updateTimedPowerEffects(deltaSeconds) {
+    ['left', 'right'].forEach(side => {
+      powerUp.effects.frozen[side] = Math.max(0, powerUp.effects.frozen[side] - deltaSeconds);
+
+      const previousGrowTime = powerUp.effects.enlarged[side];
+      powerUp.effects.enlarged[side] = Math.max(0, previousGrowTime - deltaSeconds);
+      if (previousGrowTime > 0 && powerUp.effects.enlarged[side] === 0) {
+        setPaddleHeight(side, PADDLE_HEIGHT);
+      }
+    });
+  }
+
+  function setPaddleHeight(side, height) {
+    const paddle = side === 'left' ? leftPaddle : rightPaddle;
+    if (!paddle) return;
+
+    const centerY = paddle.y + paddle.h / 2;
+    paddle.h = height;
+    paddle.y = clamp(centerY - height / 2, 0, HEIGHT - height);
+  }
+
+  function activateGrowEffect(side) {
+    powerUp.effects.enlarged[side] = GROW_EFFECT_SECONDS;
+    setPaddleHeight(side, PADDLE_HEIGHT * GROW_PADDLE_MULTIPLIER);
+  }
+
+  function activateFreezeEffect(owner) {
+    const opponent = owner === 'left' ? 'right' : 'left';
+    powerUp.effects.frozen[opponent] = ICE_FREEZE_SECONDS;
+
+    if (opponent === 'left') {
+      pressedKeys.delete('w');
+      pressedKeys.delete('s');
+      mouseTargetY = null;
+    } else {
+      pressedKeys.delete('ArrowUp');
+      pressedKeys.delete('ArrowDown');
+    }
+  }
+
+  function segmentTouchesCircle(startX, startY, endX, endY, centerX, centerY, radius) {
+    const segmentX = endX - startX;
+    const segmentY = endY - startY;
+    const lengthSquared = segmentX * segmentX + segmentY * segmentY;
+    const projection = lengthSquared === 0
+      ? 0
+      : clamp(
+        ((centerX - startX) * segmentX + (centerY - startY) * segmentY) / lengthSquared,
+        0,
+        1
+      );
+    const closestX = startX + segmentX * projection;
+    const closestY = startY + segmentY * projection;
+    const distanceX = closestX - centerX;
+    const distanceY = closestY - centerY;
+    return distanceX * distanceX + distanceY * distanceY <= radius * radius;
+  }
+
+  function collectPowerUpIfHit(previousX, previousY) {
+    if (!ball) return;
+
+    for (const side of ['left', 'right']) {
+      const pickup = powerUp.pickups[side];
+      if (!pickup) continue;
+
+      const touchesPowerUp = segmentTouchesCircle(
+        previousX,
+        previousY,
+        ball.x,
+        ball.y,
+        pickup.x,
+        pickup.y,
+        POWER_UP_RADIUS + ball.r
+      );
+      if (!touchesPowerUp) continue;
+
+      powerUp.pickups[side] = null;
+      if (pickup.type === PowerUpType.FIRE) powerUp.charged[side] = true;
+      else if (pickup.type === PowerUpType.ICE) activateFreezeEffect(side);
+      else if (pickup.type === PowerUpType.GROW) activateGrowEffect(side);
+      break;
+    }
+  }
+
+  function deactivateBallPower() {
+    powerUp.ballEffect.active = false;
+    powerUp.ballEffect.owner = null;
+  }
+
+  function isPaddleFrozen(side) {
+    return powerUp.effects.frozen[side] > 0;
+  }
+
   function handleKeyDown(event) {
+    if (event.key === 'Escape') {
+      if (event.repeat) return;
+      if (state === GameState.PAUSED) resumeGame();
+      else if (isMatchActive()) pauseGame();
+      event.preventDefault();
+      return;
+    }
+
     if (state === GameState.READY && ['Enter', ' '].includes(event.key)) {
       event.preventDefault();
       startPreparedMatch();
@@ -198,7 +465,7 @@ const Game = (() => {
   }
 
   function handlePointerMove(event) {
-    if (!isMatchActive()) return;
+    if (!isMatchActive() || isPaddleFrozen('left')) return;
 
     mouseTargetY = (event.clientY - canvasRect.top) * (HEIGHT / canvasRect.height);
     leftPaddle.y = clamp(mouseTargetY - leftPaddle.h / 2, 0, HEIGHT - leftPaddle.h);
@@ -223,8 +490,10 @@ const Game = (() => {
     ball = null;
     serveAnimation = null;
     openingDropAnimation = null;
+    countdownMode = CountdownMode.START_MATCH;
     cpuTargetY = HEIGHT / 2;
     cpuDecisionTimer = 0;
+    resetPowerUpState();
     updateScoreUI();
   }
 
@@ -346,6 +615,7 @@ const Game = (() => {
     const previousY = ball.y;
     ball.x += ball.vx * deltaSeconds;
     ball.y += ball.vy * deltaSeconds;
+    collectPowerUpIfHit(previousX, previousY);
 
     if (ball.y - ball.r <= 0 && ball.vy < 0) {
       ball.y = ball.r;
@@ -357,10 +627,10 @@ const Game = (() => {
 
     if (ball.vx < 0 && sweptPaddleCollision(ball, leftPaddle, previousX, previousY, 'left')) {
       ball.x = leftPaddle.x + leftPaddle.w + ball.r;
-      reflectBall(ball, leftPaddle, 1);
+      reflectBall(ball, leftPaddle, 1, 'left');
     } else if (ball.vx > 0 && sweptPaddleCollision(ball, rightPaddle, previousX, previousY, 'right')) {
       ball.x = rightPaddle.x - ball.r;
-      reflectBall(ball, rightPaddle, -1);
+      reflectBall(ball, rightPaddle, -1, 'right');
     }
 
     if (ball.x + ball.r < 0) {
@@ -371,15 +641,27 @@ const Game = (() => {
     if (ball.x - ball.r > WIDTH) scorePoint('left');
   }
 
-  function reflectBall(currentBall, paddle, horizontalDirection) {
+  function reflectBall(currentBall, paddle, horizontalDirection, hitter) {
     const offset = clamp(
       (currentBall.y - (paddle.y + paddle.h / 2)) / (paddle.h / 2),
       -1,
       1
     );
+
+    if (powerUp.ballEffect.active && powerUp.ballEffect.owner !== hitter) {
+      deactivateBallPower();
+    }
+
     rallyHits += 1;
-    const speed = getRallyBallSpeed();
+    let speed = getRallyBallSpeed();
     const angle = offset * 0.85;
+
+    if (powerUp.charged[hitter]) {
+      powerUp.charged[hitter] = false;
+      powerUp.ballEffect.active = true;
+      powerUp.ballEffect.owner = hitter;
+    }
+    if (powerUp.ballEffect.active) speed *= POWER_UP_SPEED_MULTIPLIER;
 
     currentBall.vx = horizontalDirection * Math.abs(speed * Math.cos(angle));
     currentBall.vy = speed * Math.sin(angle);
@@ -410,9 +692,11 @@ const Game = (() => {
   }
 
   function updatePaddles(deltaSeconds) {
-    movePlayerOnePaddle(deltaSeconds);
-    if (mode === 'cpu') moveCPUPaddle(deltaSeconds);
-    else movePlayerTwoPaddle(deltaSeconds);
+    if (!isPaddleFrozen('left')) movePlayerOnePaddle(deltaSeconds);
+    if (!isPaddleFrozen('right')) {
+      if (mode === 'cpu') moveCPUPaddle(deltaSeconds);
+      else movePlayerTwoPaddle(deltaSeconds);
+    }
   }
 
   function movePlayerOnePaddle(deltaSeconds) {
@@ -499,6 +783,7 @@ const Game = (() => {
   }
 
   function scorePoint(scorer) {
+    resetPowerUpRound();
     scores[scorer] += 1;
     updateScoreUI();
 
@@ -516,28 +801,221 @@ const Game = (() => {
     state = GameState.GAME_OVER;
     stopLoop();
     clearInput();
-    updateControlUI();
 
     const winnerText = mode === 'cpu'
       ? (winner === 'left' ? 'Você venceu!' : 'A CPU venceu!')
       : `${winner === 'left' ? 'Jogador 1' : 'Jogador 2'} venceu!`;
     setWinnerMessage(winnerText);
-    setMessage('Reinicie para jogar novamente.');
+    setMessage('');
+    updateControlUI();
+    elements.gameOverResetButton.focus();
   }
 
   function draw() {
     if (!leftPaddle || !rightPaddle) return;
 
     ctx.drawImage(backgroundCanvas, 0, 0, WIDTH, HEIGHT);
-    drawPaddle(leftPaddle, '#60a5fa');
-    drawPaddle(rightPaddle, '#f87171');
+    drawPowerUps();
+    if (powerUp.charged.left) drawPaddleFire(leftPaddle, 'left');
+    if (powerUp.charged.right) drawPaddleFire(rightPaddle, 'right');
+    drawPaddle(leftPaddle, isPaddleFrozen('left') ? '#b9f3ff' : '#60a5fa');
+    drawPaddle(rightPaddle, isPaddleFrozen('right') ? '#b9f3ff' : '#f87171');
+    if (isPaddleFrozen('left')) drawFrozenPaddleEffect(leftPaddle, 'left');
+    if (isPaddleFrozen('right')) drawFrozenPaddleEffect(rightPaddle, 'right');
 
     if (ball) {
+      if (powerUp.ballEffect.active) drawBallFire(ball);
       ctx.fillStyle = '#fff';
+      ctx.shadowColor = powerUp.ballEffect.active ? '#ff7a18' : 'transparent';
+      ctx.shadowBlur = powerUp.ballEffect.active ? 10 : 0;
       ctx.beginPath();
       ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
       ctx.fill();
+      ctx.shadowBlur = 0;
     }
+  }
+
+  function drawPowerUps() {
+    ['left', 'right'].forEach(side => {
+      const pickup = powerUp.pickups[side];
+      if (pickup) drawPowerUpPickup(pickup);
+    });
+  }
+
+  function drawPowerUpPickup(pickup) {
+    const { x, y, type } = pickup;
+    const pulse = 1 + Math.sin(performance.now() * 0.008) * 0.07;
+    const size = POWER_UP_RADIUS * 2.25 * pulse;
+    const colors = {
+      [PowerUpType.FIRE]: { glow: '#ff6a00', border: '#ffb830', fill: 'rgba(90, 25, 8, 0.88)' },
+      [PowerUpType.ICE]: { glow: '#52d9ff', border: '#b9f3ff', fill: 'rgba(11, 78, 110, 0.9)' },
+      [PowerUpType.GROW]: { glow: '#54e887', border: '#b7ffc8', fill: 'rgba(18, 91, 45, 0.9)' }
+    };
+    const color = colors[type];
+
+    ctx.save();
+    ctx.globalAlpha = 0.95;
+    ctx.shadowColor = color.glow;
+    ctx.shadowBlur = 12;
+    ctx.fillStyle = color.fill;
+    ctx.beginPath();
+    ctx.arc(x, y, POWER_UP_RADIUS * pulse, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = color.border;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(x, y, POWER_UP_RADIUS * pulse, 0, Math.PI * 2);
+    ctx.stroke();
+
+    const pickupImage = type === PowerUpType.FIRE
+      ? powerUpImage
+      : type === PowerUpType.ICE
+        ? icePowerUpImage
+        : growPowerUpImage;
+
+    if (pickupImage.complete && pickupImage.naturalWidth > 0) {
+      ctx.drawImage(pickupImage, x - size / 2, y - size / 2, size, size);
+    } else if (type === PowerUpType.FIRE) {
+      ctx.fillStyle = '#ff5a36';
+      ctx.beginPath();
+      ctx.arc(x, y, POWER_UP_RADIUS * 0.72, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (type === PowerUpType.ICE) drawIceIcon(x, y, pulse);
+    else drawGrowIcon(x, y, pulse);
+    ctx.restore();
+  }
+
+  function drawIceIcon(x, y, scale) {
+    const radius = POWER_UP_RADIUS * 0.6 * scale;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.strokeStyle = '#e8fbff';
+    ctx.lineWidth = 2.4;
+    ctx.lineCap = 'round';
+
+    for (let index = 0; index < 3; index += 1) {
+      ctx.rotate(Math.PI / 3);
+      ctx.beginPath();
+      ctx.moveTo(-radius, 0);
+      ctx.lineTo(radius, 0);
+      ctx.moveTo(radius * 0.62, 0);
+      ctx.lineTo(radius * 0.42, -radius * 0.2);
+      ctx.moveTo(radius * 0.62, 0);
+      ctx.lineTo(radius * 0.42, radius * 0.2);
+      ctx.moveTo(-radius * 0.62, 0);
+      ctx.lineTo(-radius * 0.42, -radius * 0.2);
+      ctx.moveTo(-radius * 0.62, 0);
+      ctx.lineTo(-radius * 0.42, radius * 0.2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawGrowIcon(x, y, scale) {
+    const radius = POWER_UP_RADIUS * 0.58 * scale;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.strokeStyle = '#effff2';
+    ctx.fillStyle = '#effff2';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.fillRect(-2.5, -radius * 0.55, 5, radius * 1.1);
+    ctx.beginPath();
+    ctx.moveTo(0, -radius);
+    ctx.lineTo(-5, -radius + 6);
+    ctx.moveTo(0, -radius);
+    ctx.lineTo(5, -radius + 6);
+    ctx.moveTo(0, radius);
+    ctx.lineTo(-5, radius - 6);
+    ctx.moveTo(0, radius);
+    ctx.lineTo(5, radius - 6);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawFrozenPaddleEffect(paddle, side) {
+    const outwardDirection = side === 'left' ? 1 : -1;
+    ctx.save();
+    ctx.shadowColor = '#57dcff';
+    ctx.shadowBlur = 13;
+    ctx.strokeStyle = 'rgba(191, 245, 255, 0.95)';
+    ctx.fillStyle = 'rgba(111, 224, 255, 0.42)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(paddle.x - 3, paddle.y - 3, paddle.w + 6, paddle.h + 6);
+
+    for (let index = 0; index < 5; index += 1) {
+      const shardY = paddle.y + (index + 0.5) * paddle.h / 5;
+      const shardX = side === 'left' ? paddle.x + paddle.w + 2 : paddle.x - 2;
+      ctx.beginPath();
+      ctx.moveTo(shardX, shardY - 4);
+      ctx.lineTo(shardX + outwardDirection * 7, shardY);
+      ctx.lineTo(shardX, shardY + 4);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawPaddleFire(paddle, side) {
+    const direction = side === 'left' ? 1 : -1;
+    const time = performance.now() * 0.012;
+    const flameCount = 7;
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.shadowColor = '#ff5a1f';
+    ctx.shadowBlur = 8;
+
+    for (let index = 0; index < flameCount; index += 1) {
+      const baseY = paddle.y + (index + 0.5) * paddle.h / flameCount;
+      const flicker = Math.sin(time + index * 1.7);
+      const flameWidth = 8 + (flicker + 1) * 2.4;
+      const flameX = side === 'left'
+        ? paddle.x + paddle.w + flameWidth * 0.35
+        : paddle.x - flameWidth * 0.35;
+
+      ctx.fillStyle = index % 2 === 0 ? 'rgba(255, 74, 30, 0.82)' : 'rgba(255, 166, 24, 0.78)';
+      ctx.beginPath();
+      ctx.ellipse(flameX, baseY + flicker * 1.4, flameWidth / 2, 3.2, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = 'rgba(255, 224, 92, 0.7)';
+      ctx.beginPath();
+      ctx.ellipse(flameX - direction * 1.2, baseY, flameWidth * 0.27, 1.35, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawBallFire(currentBall) {
+    const speed = Math.hypot(currentBall.vx, currentBall.vy);
+    if (speed === 0) return;
+
+    const directionX = currentBall.vx / speed;
+    const directionY = currentBall.vy / speed;
+    const perpendicularX = -directionY;
+    const perpendicularY = directionX;
+    const time = performance.now() * 0.016;
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.shadowColor = '#ff4d19';
+    ctx.shadowBlur = 7;
+
+    for (let index = 7; index >= 1; index -= 1) {
+      const progress = index / 7;
+      const distance = index * 4.2;
+      const wobble = Math.sin(time + index * 1.3) * 1.7 * progress;
+      const trailX = currentBall.x - directionX * distance + perpendicularX * wobble;
+      const trailY = currentBall.y - directionY * distance + perpendicularY * wobble;
+
+      ctx.globalAlpha = (1 - progress * 0.72) * 0.85;
+      ctx.fillStyle = index % 2 === 0 ? '#ff4d1f' : '#ffb31a';
+      ctx.beginPath();
+      ctx.arc(trailX, trailY, Math.max(1.4, currentBall.r * (1 - progress * 0.62)), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
   }
 
   function drawPaddle(paddle, color) {
@@ -551,9 +1029,10 @@ const Game = (() => {
     ctx.fill();
   }
 
-  function beginCountdown(seconds) {
+  function beginCountdown(seconds, nextMode = CountdownMode.START_MATCH) {
     countdownRemaining = seconds;
     lastCountdownValue = null;
+    countdownMode = nextMode;
     state = GameState.COUNTDOWN;
     elements.countdown.classList.remove('hidden');
     updateCountdown(0);
@@ -573,8 +1052,10 @@ const Game = (() => {
 
     elements.countdown.classList.add('hidden');
     elements.countdown.textContent = '';
+    const completedMode = countdownMode;
+    countdownMode = CountdownMode.START_MATCH;
     state = GameState.PLAYING;
-    beginOpeningDrop();
+    if (completedMode === CountdownMode.START_MATCH) beginOpeningDrop();
     setMessage('');
     updateControlUI();
   }
@@ -602,7 +1083,10 @@ const Game = (() => {
 
     updatePaddles(deltaSeconds);
     if (state === GameState.COUNTDOWN) updateCountdown(deltaSeconds);
-    else updateBall(deltaSeconds);
+    else {
+      updateBall(deltaSeconds);
+      if (state === GameState.PLAYING) updatePowerUp(deltaSeconds);
+    }
     draw();
 
     if (isMatchActive()) frameId = requestAnimationFrame(loop);
@@ -615,6 +1099,7 @@ const Game = (() => {
     state = GameState.PAUSED;
     stopLoop();
     clearInput();
+    showPauseMenu();
     setMessage(message);
     updateControlUI();
   }
@@ -622,17 +1107,45 @@ const Game = (() => {
   function resumeGame() {
     if (state !== GameState.PAUSED) return;
 
-    state = resumeState === GameState.COUNTDOWN && countdownRemaining > 0
-      ? GameState.COUNTDOWN
-      : GameState.PLAYING;
-    setMessage(state === GameState.COUNTDOWN ? 'Preparar...' : '');
-    updateControlUI();
+    const resumeCountdownMode = resumeState === GameState.COUNTDOWN
+      ? countdownMode
+      : CountdownMode.RESUME_MATCH;
+    hidePauseMenu();
+    beginCountdown(3, resumeCountdownMode);
+    setMessage('Preparar...');
     startLoop();
   }
 
   function togglePause() {
     if (state === GameState.PAUSED) resumeGame();
     else if (state === GameState.PLAYING) pauseGame();
+  }
+
+  function showPauseMenu() {
+    setPauseScreen('actions');
+    elements.pauseMenu.classList.remove('hidden');
+    elements.overlay.classList.add('pause-open');
+    elements.pauseButton.setAttribute('aria-expanded', 'true');
+    elements.resumeButton.focus();
+  }
+
+  function hidePauseMenu() {
+    elements.pauseMenu.classList.add('hidden');
+    elements.overlay.classList.remove('pause-open');
+    elements.pauseButton.setAttribute('aria-expanded', 'false');
+  }
+
+  function setPauseScreen(screenName) {
+    const validScreen = pauseScreens.some(screen => screen.dataset.pauseScreen === screenName)
+      ? screenName
+      : 'actions';
+
+    pauseScreens.forEach(screen => {
+      const isActive = screen.dataset.pauseScreen === validScreen;
+      screen.hidden = !isActive;
+      screen.classList.toggle('is-active', isActive);
+      screen.setAttribute('aria-hidden', String(!isActive));
+    });
   }
 
   function setMenuScreen(screenName) {
@@ -646,13 +1159,16 @@ const Game = (() => {
       screen.classList.toggle('is-active', isActive);
       screen.setAttribute('aria-hidden', String(!isActive));
     });
+    elements.menuLogo.classList.toggle('hidden', validScreen !== 'mainMenu');
   }
 
   function openMenu(screenName = 'mainMenu') {
     stopLoop();
+    hidePauseMenu();
     state = GameState.MENU;
     countdownRemaining = 0;
     lastCountdownValue = null;
+    countdownMode = CountdownMode.START_MATCH;
     clearInput();
     initMatch(true);
 
@@ -673,6 +1189,7 @@ const Game = (() => {
     if (!['cpu', 'pvp'].includes(selectedMode)) return;
 
     stopLoop();
+    hidePauseMenu();
     mode = selectedMode;
     clearInput();
     initMatch(true);
@@ -726,11 +1243,14 @@ const Game = (() => {
     }
 
     elements.hint.textContent = mode === 'cpu'
-      ? 'W / S ou Mouse - mover raquete'
-      : 'P1: W / S ou Mouse - P2: setas';
+      ? 'W / S ou Mouse - mover raquete • Esc - pausar'
+      : 'P1: W / S ou Mouse - P2: setas • Esc - pausar';
   }
 
   function updateControlUI() {
+    const isGameOver = state === GameState.GAME_OVER;
+    elements.pauseButton.classList.toggle('hidden', isGameOver);
+    elements.gameOverMenuButton.classList.toggle('hidden', !isGameOver);
     elements.pauseButton.disabled = state !== GameState.PLAYING && state !== GameState.PAUSED;
     elements.pauseButton.textContent = state === GameState.PAUSED ? 'Continuar' : 'Pausar';
   }
@@ -776,7 +1296,7 @@ const Game = (() => {
 
   function setWinnerMessage(text) {
     elements.winnerMessage.textContent = text;
-    elements.winnerMessage.classList.toggle('hidden', !text);
+    elements.gameOverPanel.classList.toggle('hidden', !text);
   }
 
   function clamp(value, min, max) {
@@ -790,8 +1310,12 @@ const Game = (() => {
   elements.startPrompt.addEventListener('click', startPreparedMatch);
   elements.menuButton.addEventListener('click', () => openMenu());
   elements.pauseButton.addEventListener('click', togglePause);
-  elements.resetButton.addEventListener('click', resetMatch);
-  elements.settingsButton.addEventListener('click', () => openMenu('settingsMenu'));
+  elements.resumeButton.addEventListener('click', resumeGame);
+  elements.resetButton.addEventListener('click', () => setPauseScreen('restartConfirm'));
+  elements.resetConfirmButton.addEventListener('click', resetMatch);
+  elements.resetCancelButton.addEventListener('click', () => setPauseScreen('actions'));
+  elements.gameOverResetButton.addEventListener('click', resetMatch);
+  elements.gameOverMenuButton.addEventListener('click', () => openMenu());
   menuBackButtons.forEach(button => {
     button.addEventListener('click', () => setMenuScreen(button.dataset.menuBack || 'mainMenu'));
   });

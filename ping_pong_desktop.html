@@ -34,7 +34,10 @@
 
     <div id="overlay" class="menu-active">
       <div id="countdown" class="hidden" role="status" aria-live="assertive">3</div>
-      <div id="winner-message" class="hidden" role="status" aria-live="assertive"></div>
+      <div id="game-over-panel" class="hidden">
+        <div id="winner-message" role="status" aria-live="assertive"></div>
+        <button id="btn-game-over-reset" class="menu-btn primary" type="button">Reiniciar</button>
+      </div>
       <div id="ready-overlay" class="hidden">
         <span class="control-cue" aria-hidden="true">
           <svg viewBox="0 0 40 52">
@@ -47,6 +50,7 @@
       </div>
 
       <section id="start-menu" role="dialog" aria-modal="true" aria-labelledby="menu-title">
+        <img id="menu-logo" class="menu-logo" src="img/logo.png" alt="" width="73" height="73" />
         <h2 id="menu-title" class="menu-title">Ping Pong The Game</h2>
 
         <div class="menu-screen is-active" data-menu-screen="mainMenu">
@@ -110,17 +114,35 @@
           </div>
         </div>
       </section>
+
+      <section id="pause-menu" class="hidden" role="dialog" aria-modal="true" aria-labelledby="pause-menu-title">
+        <div class="pause-screen is-active" data-pause-screen="actions">
+          <h2 id="pause-menu-title" class="menu-title">Pausado</h2>
+          <div class="menu-actions pause-actions">
+            <button class="menu-btn primary" id="btn-resume" type="button">Continuar</button>
+            <button class="menu-btn" id="btn-reset" type="button">Reiniciar</button>
+            <button class="menu-btn" id="btn-menu" type="button">Voltar ao Menu</button>
+          </div>
+        </div>
+
+        <div class="pause-screen" data-pause-screen="restartConfirm" hidden>
+          <h2 class="menu-title">Reiniciar partida?</h2>
+          <p class="pause-confirmation-text">Tem certeza que deseja reiniciar?</p>
+          <div class="pause-confirmation-actions">
+            <button class="menu-btn primary" id="btn-reset-confirm" type="button">Sim</button>
+            <button class="menu-btn" id="btn-reset-cancel" type="button">Não</button>
+          </div>
+        </div>
+      </section>
     </div>
   </main>
 
   <nav id="controls" aria-label="Controles da partida">
-    <button id="btn-menu" type="button">Menu</button>
-    <button id="btn-pause" type="button" disabled>Pausar</button>
-    <button id="btn-reset" type="button">Reiniciar</button>
-    <button id="btn-settings" type="button">Configurações</button>
+    <button id="btn-pause" type="button" aria-controls="pause-menu" aria-expanded="false" disabled>Pausar</button>
+    <button id="btn-game-over-menu" class="hidden" type="button">Voltar ao Menu</button>
   </nav>
 
-  <p class="hint" id="hint">W / S ou Mouse - mover raquete</p>
+  <p class="hint" id="hint">W / S ou Mouse - mover raquete • Esc - pausar</p>
   <p id="msg" role="status" aria-live="polite">Escolha o modo de jogo</p>
 </body>
 </html>
