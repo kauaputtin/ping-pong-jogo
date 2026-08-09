@@ -45,6 +45,8 @@ const Game = (() => {
   const ICE_FREEZE_SECONDS = 1;
   const GROW_EFFECT_SECONDS = 8;
   const GROW_PADDLE_MULTIPLIER = 2;
+  const GROW_WARNING_SECONDS = 3;
+  const GROW_WARNING_BLINK_MS = 180;
 
   const GameState = Object.freeze({
     MENU: 'MENU',
@@ -79,6 +81,7 @@ const Game = (() => {
     overlay: document.getElementById('overlay'),
     startMenu: document.getElementById('start-menu'),
     menuLogo: document.getElementById('menu-logo'),
+    menuTitle: document.getElementById('menu-title'),
     pauseMenu: document.getElementById('pause-menu'),
     readyOverlay: document.getElementById('ready-overlay'),
     startPrompt: document.getElementById('start-prompt'),
@@ -419,7 +422,7 @@ const Game = (() => {
       powerUp.pickups.splice(index, 1);
       if (pickup.type === PowerUpType.FIRE) {
         powerUp.charged[lastPaddleHit] = true;
-        audio.playEffect('firePickup');
+        audio.playEffect('firePaddle');
       } else if (pickup.type === PowerUpType.ICE) {
         activateFreezeEffect(lastPaddleHit);
         audio.playEffect('freeze');
@@ -679,7 +682,10 @@ const Game = (() => {
     }
     if (powerUp.ballEffect.active) speed *= POWER_UP_SPEED_MULTIPLIER;
 
-    audio.playEffect(releasedFire ? 'fireHit' : 'hit');
+    if (releasedFire) {
+      audio.stopEffect('firePaddle');
+      audio.playEffect('fireBall');
+    } else audio.playEffect('hit');
 
     currentBall.vx = horizontalDirection * Math.abs(speed * Math.cos(angle));
     currentBall.vy = speed * Math.sin(angle);
@@ -810,7 +816,8 @@ const Game = (() => {
       return;
     }
 
-    audio.playEffect('score');
+    const cpuScored = mode === 'cpu' && scorer === 'right';
+    audio.playEffect(cpuScored ? 'cpuScore' : 'score');
 
     const paddle = scorer === 'left' ? leftPaddle : rightPaddle;
     paddle.y = HEIGHT / 2 - paddle.h / 2;
@@ -831,17 +838,22 @@ const Game = (() => {
     elements.gameOverResetButton.focus();
   }
 
-  function draw() {
+  function draw(renderTimestamp = performance.now()) {
     if (!leftPaddle || !rightPaddle) return;
+
+    const leftFrozen = isPaddleFrozen('left');
+    const rightFrozen = isPaddleFrozen('right');
+    const leftOpacity = getGrowWarningOpacity('left', renderTimestamp);
+    const rightOpacity = getGrowWarningOpacity('right', renderTimestamp);
 
     ctx.drawImage(backgroundCanvas, 0, 0, WIDTH, HEIGHT);
     drawPowerUps();
     if (powerUp.charged.left) drawPaddleFire(leftPaddle, 'left');
     if (powerUp.charged.right) drawPaddleFire(rightPaddle, 'right');
-    drawPaddle(leftPaddle, isPaddleFrozen('left') ? '#b9f3ff' : '#60a5fa');
-    drawPaddle(rightPaddle, isPaddleFrozen('right') ? '#b9f3ff' : '#f87171');
-    if (isPaddleFrozen('left')) drawFrozenPaddleEffect(leftPaddle, 'left');
-    if (isPaddleFrozen('right')) drawFrozenPaddleEffect(rightPaddle, 'right');
+    drawPaddle(leftPaddle, leftFrozen ? '#b9f3ff' : '#60a5fa', leftOpacity);
+    drawPaddle(rightPaddle, rightFrozen ? '#b9f3ff' : '#f87171', rightOpacity);
+    if (leftFrozen) drawFrozenPaddleEffect(leftPaddle, 'left', leftOpacity);
+    if (rightFrozen) drawFrozenPaddleEffect(rightPaddle, 'right', rightOpacity);
 
     if (ball) {
       if (powerUp.ballEffect.active) drawBallFire(ball);
@@ -950,9 +962,10 @@ const Game = (() => {
     ctx.restore();
   }
 
-  function drawFrozenPaddleEffect(paddle, side) {
+  function drawFrozenPaddleEffect(paddle, side, opacity = 1) {
     const outwardDirection = side === 'left' ? 1 : -1;
     ctx.save();
+    ctx.globalAlpha = opacity;
     ctx.shadowColor = '#57dcff';
     ctx.shadowBlur = 13;
     ctx.strokeStyle = 'rgba(191, 245, 255, 0.95)';
@@ -1035,7 +1048,15 @@ const Game = (() => {
     ctx.restore();
   }
 
-  function drawPaddle(paddle, color) {
+  function getGrowWarningOpacity(side, renderTimestamp) {
+    const remainingSeconds = powerUp.effects.enlarged[side];
+    if (remainingSeconds <= 0 || remainingSeconds > GROW_WARNING_SECONDS) return 1;
+
+    return Math.floor(renderTimestamp / GROW_WARNING_BLINK_MS) % 2 === 0 ? 1 : 0.28;
+  }
+
+  function drawPaddle(paddle, color, opacity = 1) {
+    ctx.globalAlpha = opacity;
     ctx.fillStyle = color;
     ctx.beginPath();
     if (typeof ctx.roundRect === 'function') {
@@ -1044,6 +1065,7 @@ const Game = (() => {
       ctx.rect(paddle.x, paddle.y, paddle.w, paddle.h);
     }
     ctx.fill();
+    ctx.globalAlpha = 1;
   }
 
   function beginCountdown(seconds, nextMode = CountdownMode.START_MATCH) {
@@ -1178,6 +1200,9 @@ const Game = (() => {
     });
     elements.menuLogo.classList.toggle('hidden', validScreen !== 'mainMenu');
     elements.startMenu.classList.toggle('settings-open', validScreen === 'settingsMenu');
+    elements.menuTitle.textContent = validScreen === 'settingsMenu'
+      ? t('settings')
+      : 'Ping Pong The Game';
   }
 
   function openMenu(screenName = 'mainMenu') {
@@ -1327,6 +1352,9 @@ const Game = (() => {
 
   function refreshLocalizedUI() {
     syncPreferenceControls();
+    elements.menuTitle.textContent = elements.startMenu.classList.contains('settings-open')
+      ? t('settings')
+      : 'Ping Pong The Game';
     updateModeUI();
     updateControlUI();
     updateWinningScoreUI();

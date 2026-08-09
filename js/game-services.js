@@ -6,6 +6,8 @@
     music: 'ping-pong-music-enabled',
     sound: 'ping-pong-sound-enabled'
   });
+  const MUSIC_VOLUME = 0.08;
+  const EFFECT_VOLUME_SCALE = 0.65;
 
   const translations = Object.freeze({
     'pt-BR': Object.freeze({
@@ -242,26 +244,27 @@
   const backgroundMusic = new Audio('sounds/music.mp3');
   backgroundMusic.preload = 'auto';
   backgroundMusic.loop = true;
-  backgroundMusic.volume = 0.12;
+  backgroundMusic.volume = MUSIC_VOLUME;
 
   const effectDefinitions = Object.freeze({
-    hit: ['sounds/hit.wav', 0.48],
-    score: ['sounds/score.mp3', 0.5],
-    win: ['sounds/win.wav', 0.58],
-    lose: ['sounds/lose.wav', 0.58],
-    firePickup: ['sounds/ball_fire.wav', 0.52],
-    fireHit: ['sounds/raquete_fire.wav', 0.55],
-    freeze: ['sounds/freeze.mp3', 0.52],
-    grow: ['sounds/crecer_paddle.wav', 0.52]
+    hit: ['sounds/hit2.wav', 0.48, 3],
+    score: ['sounds/score.mp3', 0.5, 1],
+    cpuScore: ['sounds/8-bit-hit.wav', 0.5, 1],
+    win: ['sounds/win.wav', 0.58, 1],
+    lose: ['sounds/lose.wav', 0.58, 1],
+    firePaddle: ['sounds/raquete_fire.wav', 0.55, 1],
+    fireBall: ['sounds/ball_fire.wav', 0.52, 1],
+    freeze: ['sounds/freeze.mp3', 0.52, 1],
+    grow: ['sounds/crecer_paddle.wav', 0.52, 1]
   });
   const effectPools = {};
   const effectPoolIndexes = {};
 
-  Object.entries(effectDefinitions).forEach(([name, [source, volume]]) => {
-    effectPools[name] = Array.from({ length: 3 }, () => {
+  Object.entries(effectDefinitions).forEach(([name, [source, volume, poolSize]]) => {
+    effectPools[name] = Array.from({ length: poolSize }, () => {
       const audio = new Audio(source);
       audio.preload = 'auto';
-      audio.volume = volume;
+      audio.volume = volume * EFFECT_VOLUME_SCALE;
       return audio;
     });
     effectPoolIndexes[name] = 0;
@@ -314,6 +317,15 @@
     });
   }
 
+  function stopEffect(name) {
+    if (!effectPools[name]) return;
+
+    effectPools[name].forEach(audio => {
+      audio.pause();
+      audio.currentTime = 0;
+    });
+  }
+
   document.addEventListener('pointerdown', unlockAudio, { capture: true, once: true });
   document.addEventListener('keydown', unlockAudio, { capture: true, once: true });
   window.addEventListener('pageshow', ensureMusicPlaying);
@@ -333,6 +345,7 @@
       isMusicEnabled: () => musicEnabled,
       isSoundEnabled: () => soundEnabled,
       playEffect,
+      stopEffect,
       setMusicEnabled,
       setSoundEnabled
     })

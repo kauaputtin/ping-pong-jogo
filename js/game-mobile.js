@@ -6,9 +6,10 @@ const GameMobile = (() => {
   const t = services.t;
 
   const canvas = document.getElementById('game-canvas');
-  const ctx = canvas.getContext('2d', { alpha: false });
+  const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
   const backgroundCanvas = document.createElement('canvas');
   const backgroundCtx = backgroundCanvas.getContext('2d', { alpha: false });
+  const supportsRoundRect = typeof ctx.roundRect === 'function';
   const powerUpImage = new Image();
   powerUpImage.decoding = 'async';
   powerUpImage.src = 'img/logo.png';
@@ -32,7 +33,11 @@ const GameMobile = (() => {
   const DEFAULT_WINNING_SCORE = 5;
   const WINNING_SCORE_OPTIONS = Object.freeze([3, 5, 7, 10]);
   const WINNING_SCORE_STORAGE_KEY = 'ping-pong-winning-score';
-  const MAX_DELTA_SECONDS = 1 / 30;
+  const MAX_DELTA_SECONDS = 1 / 20;
+  const HIGH_QUALITY_PIXEL_RATIO = 1.5;
+  const LOW_QUALITY_PIXEL_RATIO = 1;
+  const PERFORMANCE_SAMPLE_FRAMES = 90;
+  const SLOW_FRAME_THRESHOLD_MS = 20.5;
   const RALLY_SPEEDUP_EVERY_HITS = 4;
   const RALLY_SPEEDUP_STEP = 0.10;
   const MAX_RALLY_SPEED_MULTIPLIER = 1.8;
@@ -46,6 +51,8 @@ const GameMobile = (() => {
   const ICE_FREEZE_SECONDS = 1;
   const GROW_EFFECT_SECONDS = 8;
   const GROW_PADDLE_MULTIPLIER = 2;
+  const GROW_WARNING_SECONDS = 3;
+  const GROW_WARNING_BLINK_MS = 180;
 
   const GameState = Object.freeze({
     MENU: 'MENU',
@@ -67,6 +74,19 @@ const GameMobile = (() => {
     GROW: 'GROW'
   });
   const POWER_UP_TYPES = Object.freeze(Object.values(PowerUpType));
+  const POWER_UP_COLORS = Object.freeze({
+    [PowerUpType.FIRE]: Object.freeze({ glow: '#ff6a00', border: '#ffb830', fill: 'rgba(90, 25, 8, 0.88)' }),
+    [PowerUpType.ICE]: Object.freeze({ glow: '#52d9ff', border: '#b9f3ff', fill: 'rgba(11, 78, 110, 0.9)' }),
+    [PowerUpType.GROW]: Object.freeze({ glow: '#54e887', border: '#b7ffc8', fill: 'rgba(18, 91, 45, 0.9)' })
+  });
+
+  const deviceMemory = Number(navigator.deviceMemory || 0);
+  const processorCount = Number(navigator.hardwareConcurrency || 0);
+  const startsInLowQuality = Boolean(
+    navigator.connection?.saveData ||
+    (deviceMemory > 0 && deviceMemory <= 4) ||
+    (processorCount > 0 && processorCount <= 4)
+  );
 
   const CPU_SETTINGS = Object.freeze({
     easy: { ballSpeed: 336, maxSpeed: 170, reactionTime: 0.18, error: 52, aim: 0 },
@@ -75,11 +95,13 @@ const GameMobile = (() => {
   });
 
   const elements = {
+    header: document.querySelector('h1'),
     field: document.getElementById('field'),
     controls: document.getElementById('controls'),
     overlay: document.getElementById('overlay'),
     startMenu: document.getElementById('start-menu'),
     menuLogo: document.getElementById('menu-logo'),
+    menuTitle: document.getElementById('menu-title'),
     pauseMenu: document.getElementById('pause-menu'),
     readyOverlay: document.getElementById('ready-overlay'),
     startPrompt: document.getElementById('start-prompt'),
@@ -144,12 +166,20 @@ const GameMobile = (() => {
   let powerUp = createPowerUpState();
   let currentMessage = { key: '', variables: {} };
   let currentWinnerMessage = { key: '', variables: {} };
+  let renderQuality = startsInLowQuality ? 'low' : 'high';
+  let performanceFrameCount = 0;
+  let performanceElapsedMs = 0;
+  let previousPerformanceTimestamp = 0;
 
   const activePointers = new Map();
   const pointerTargets = { top: null, bottom: null };
+  canvas.dataset.renderQuality = renderQuality;
 
   function configureCanvasResolution() {
-    const nextPixelRatio = Math.min(Math.max(window.devicePixelRatio || 1, 1), 2);
+    const pixelRatioLimit = renderQuality === 'low'
+      ? LOW_QUALITY_PIXEL_RATIO
+      : HIGH_QUALITY_PIXEL_RATIO;
+    const nextPixelRatio = Math.min(Math.max(window.devicePixelRatio || 1, 1), pixelRatioLimit);
     const nextWidth = Math.round(WIDTH * nextPixelRatio);
     const nextHeight = Math.round(HEIGHT * nextPixelRatio);
 
@@ -159,6 +189,7 @@ const GameMobile = (() => {
     canvas.width = nextWidth;
     canvas.height = nextHeight;
     ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    ctx.imageSmoothingEnabled = renderQuality === 'high';
 
     backgroundCanvas.width = nextWidth;
     backgroundCanvas.height = nextHeight;
@@ -191,7 +222,7 @@ const GameMobile = (() => {
     if (!document.body.classList.contains('menu-open')) {
       const viewportHeight = window.visualViewport?.height || window.innerHeight;
       const viewportWidth = window.visualViewport?.width || window.innerWidth;
-      const headerHeight = document.querySelector('h1')?.getBoundingClientRect().height || 0;
+      const headerHeight = elements.header?.getBoundingClientRect().height || 0;
       const controlsHeight = elements.controls?.getBoundingClientRect().height || 0;
       const hintHeight = elements.hint?.getBoundingClientRect().height || 0;
       const messageHeight = elements.message?.getBoundingClientRect().height || 0;
@@ -225,11 +256,12 @@ const GameMobile = (() => {
     }
   }
 
-  function getCanvasPoint(clientX, clientY) {
-    return {
-      x: (clientX - canvasRect.left) * (WIDTH / canvasRect.width),
-      y: (clientY - canvasRect.top) * (HEIGHT / canvasRect.height)
-    };
+  function getCanvasX(clientX) {
+    return (clientX - canvasRect.left) * (WIDTH / canvasRect.width);
+  }
+
+  function getCanvasY(clientY) {
+    return (clientY - canvasRect.top) * (HEIGHT / canvasRect.height);
   }
 
   function isMatchActive() {
@@ -245,12 +277,12 @@ const GameMobile = (() => {
 
     event.preventDefault();
     refreshCanvasRect();
-    const point = getCanvasPoint(event.clientX, event.clientY);
-    const player = mode === 'pvp' && point.y < HEIGHT / 2 ? 'top' : 'bottom';
+    const targetX = getCanvasX(event.clientX);
+    const player = mode === 'pvp' && getCanvasY(event.clientY) < HEIGHT / 2 ? 'top' : 'bottom';
     if (isPaddleFrozen(player)) return;
 
     activePointers.set(event.pointerId, player);
-    pointerTargets[player] = point.x;
+    pointerTargets[player] = targetX;
     canvas.setPointerCapture?.(event.pointerId);
     hideControlGuide();
   }
@@ -260,7 +292,7 @@ const GameMobile = (() => {
     if (!player || isPaddleFrozen(player)) return;
 
     event.preventDefault();
-    pointerTargets[player] = getCanvasPoint(event.clientX, event.clientY).x;
+    pointerTargets[player] = getCanvasX(event.clientX);
   }
 
   function handlePointerEnd(event) {
@@ -388,15 +420,18 @@ const GameMobile = (() => {
   }
 
   function updateTimedPowerEffects(deltaSeconds) {
-    ['top', 'bottom'].forEach(side => {
-      powerUp.effects.frozen[side] = Math.max(0, powerUp.effects.frozen[side] - deltaSeconds);
+    updateTimedPowerEffect('top', deltaSeconds);
+    updateTimedPowerEffect('bottom', deltaSeconds);
+  }
 
-      const previousGrowTime = powerUp.effects.enlarged[side];
-      powerUp.effects.enlarged[side] = Math.max(0, previousGrowTime - deltaSeconds);
-      if (previousGrowTime > 0 && powerUp.effects.enlarged[side] === 0) {
-        setPaddleWidth(side, PADDLE_WIDTH);
-      }
-    });
+  function updateTimedPowerEffect(side, deltaSeconds) {
+    powerUp.effects.frozen[side] = Math.max(0, powerUp.effects.frozen[side] - deltaSeconds);
+
+    const previousGrowTime = powerUp.effects.enlarged[side];
+    powerUp.effects.enlarged[side] = Math.max(0, previousGrowTime - deltaSeconds);
+    if (previousGrowTime > 0 && powerUp.effects.enlarged[side] === 0) {
+      setPaddleWidth(side, PADDLE_WIDTH);
+    }
   }
 
   function setPaddleWidth(side, width) {
@@ -456,7 +491,7 @@ const GameMobile = (() => {
       powerUp.pickups.splice(index, 1);
       if (pickup.type === PowerUpType.FIRE) {
         powerUp.charged[lastPaddleHit] = true;
-        audio.playEffect('firePickup');
+        audio.playEffect('firePaddle');
       } else if (pickup.type === PowerUpType.ICE) {
         activateFreezeEffect(lastPaddleHit);
         audio.playEffect('freeze');
@@ -673,7 +708,10 @@ const GameMobile = (() => {
     }
     if (powerUp.ballEffect.active) speed *= POWER_UP_SPEED_MULTIPLIER;
 
-    audio.playEffect(releasedFire ? 'fireHit' : 'hit');
+    if (releasedFire) {
+      audio.stopEffect('firePaddle');
+      audio.playEffect('fireBall');
+    } else audio.playEffect('hit');
 
     currentBall.vx = speed * Math.sin(angle);
     currentBall.vy = verticalDirection * Math.abs(speed * Math.cos(angle));
@@ -794,7 +832,8 @@ const GameMobile = (() => {
       return;
     }
 
-    audio.playEffect('score');
+    const cpuScored = mode === 'cpu' && scorer === 'top';
+    audio.playEffect(cpuScored ? 'cpuScore' : 'score');
 
     const paddle = scorer === 'top' ? topPaddle : bottomPaddle;
     paddle.x = WIDTH / 2 - paddle.w / 2;
@@ -815,23 +854,29 @@ const GameMobile = (() => {
     elements.gameOverResetButton.focus();
   }
 
-  function draw() {
+  function draw(renderTimestamp = performance.now()) {
     if (!topPaddle || !bottomPaddle) return;
 
+    const topFrozen = isPaddleFrozen('top');
+    const bottomFrozen = isPaddleFrozen('bottom');
+    const topOpacity = getGrowWarningOpacity('top', renderTimestamp);
+    const bottomOpacity = getGrowWarningOpacity('bottom', renderTimestamp);
+    const useDetailedEffects = renderQuality === 'high';
+
     ctx.drawImage(backgroundCanvas, 0, 0, WIDTH, HEIGHT);
-    drawPowerUps();
-    if (powerUp.charged.top) drawPaddleFire(topPaddle, 'top');
-    if (powerUp.charged.bottom) drawPaddleFire(bottomPaddle, 'bottom');
-    drawPaddle(topPaddle, isPaddleFrozen('top') ? '#b9f3ff' : '#60a5fa');
-    drawPaddle(bottomPaddle, isPaddleFrozen('bottom') ? '#b9f3ff' : '#f87171');
-    if (isPaddleFrozen('top')) drawFrozenPaddleEffect(topPaddle, 'top');
-    if (isPaddleFrozen('bottom')) drawFrozenPaddleEffect(bottomPaddle, 'bottom');
+    drawPowerUps(renderTimestamp);
+    if (powerUp.charged.top) drawPaddleFire(topPaddle, 'top', renderTimestamp);
+    if (powerUp.charged.bottom) drawPaddleFire(bottomPaddle, 'bottom', renderTimestamp);
+    drawPaddle(topPaddle, topFrozen ? '#b9f3ff' : '#60a5fa', topOpacity);
+    drawPaddle(bottomPaddle, bottomFrozen ? '#b9f3ff' : '#f87171', bottomOpacity);
+    if (topFrozen) drawFrozenPaddleEffect(topPaddle, 'top', topOpacity);
+    if (bottomFrozen) drawFrozenPaddleEffect(bottomPaddle, 'bottom', bottomOpacity);
 
     if (ball) {
-      if (powerUp.ballEffect.active) drawBallFire(ball);
+      if (powerUp.ballEffect.active) drawBallFire(ball, renderTimestamp);
       ctx.fillStyle = '#fff';
       ctx.shadowColor = powerUp.ballEffect.active ? '#ff7a18' : 'transparent';
-      ctx.shadowBlur = powerUp.ballEffect.active ? 10 : 0;
+      ctx.shadowBlur = powerUp.ballEffect.active && useDetailedEffects ? 8 : 0;
       ctx.beginPath();
       ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
       ctx.fill();
@@ -839,25 +884,23 @@ const GameMobile = (() => {
     }
   }
 
-  function drawPowerUps() {
-    powerUp.pickups.forEach(drawPowerUpPickup);
+  function drawPowerUps(renderTimestamp) {
+    for (let index = 0; index < powerUp.pickups.length; index += 1) {
+      drawPowerUpPickup(powerUp.pickups[index], renderTimestamp);
+    }
   }
 
-  function drawPowerUpPickup(pickup) {
+  function drawPowerUpPickup(pickup, renderTimestamp) {
     const { x, y, type } = pickup;
-    const pulse = 1 + Math.sin(performance.now() * 0.008) * 0.07;
+    const useDetailedEffects = renderQuality === 'high';
+    const pulse = useDetailedEffects ? 1 + Math.sin(renderTimestamp * 0.008) * 0.07 : 1;
     const size = POWER_UP_RADIUS * 2.3 * pulse;
-    const colors = {
-      [PowerUpType.FIRE]: { glow: '#ff6a00', border: '#ffb830', fill: 'rgba(90, 25, 8, 0.88)' },
-      [PowerUpType.ICE]: { glow: '#52d9ff', border: '#b9f3ff', fill: 'rgba(11, 78, 110, 0.9)' },
-      [PowerUpType.GROW]: { glow: '#54e887', border: '#b7ffc8', fill: 'rgba(18, 91, 45, 0.9)' }
-    };
-    const color = colors[type];
+    const color = POWER_UP_COLORS[type];
 
     ctx.save();
     ctx.globalAlpha = 0.95;
     ctx.shadowColor = color.glow;
-    ctx.shadowBlur = 12;
+    ctx.shadowBlur = useDetailedEffects ? 10 : 0;
     ctx.fillStyle = color.fill;
     ctx.beginPath();
     ctx.arc(x, y, POWER_UP_RADIUS * pulse, 0, Math.PI * 2);
@@ -934,11 +977,12 @@ const GameMobile = (() => {
     ctx.restore();
   }
 
-  function drawFrozenPaddleEffect(paddle, side) {
+  function drawFrozenPaddleEffect(paddle, side, opacity = 1) {
     const outwardDirection = side === 'top' ? 1 : -1;
     ctx.save();
+    ctx.globalAlpha = opacity;
     ctx.shadowColor = '#57dcff';
-    ctx.shadowBlur = 13;
+    ctx.shadowBlur = renderQuality === 'high' ? 10 : 0;
     ctx.strokeStyle = 'rgba(191, 245, 255, 0.95)';
     ctx.fillStyle = 'rgba(111, 224, 255, 0.42)';
     ctx.lineWidth = 2;
@@ -957,15 +1001,16 @@ const GameMobile = (() => {
     ctx.restore();
   }
 
-  function drawPaddleFire(paddle, side) {
+  function drawPaddleFire(paddle, side, renderTimestamp) {
     const direction = side === 'top' ? 1 : -1;
-    const time = performance.now() * 0.012;
-    const flameCount = 7;
+    const time = renderTimestamp * 0.012;
+    const useDetailedEffects = renderQuality === 'high';
+    const flameCount = useDetailedEffects ? 7 : 4;
 
     ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalCompositeOperation = useDetailedEffects ? 'lighter' : 'source-over';
     ctx.shadowColor = '#ff5a1f';
-    ctx.shadowBlur = 8;
+    ctx.shadowBlur = useDetailedEffects ? 7 : 0;
 
     for (let index = 0; index < flameCount; index += 1) {
       const baseX = paddle.x + (index + 0.5) * paddle.w / flameCount;
@@ -988,23 +1033,25 @@ const GameMobile = (() => {
     ctx.restore();
   }
 
-  function drawBallFire(currentBall) {
-    const speed = Math.hypot(currentBall.vx, currentBall.vy);
+  function drawBallFire(currentBall, renderTimestamp) {
+    const speed = Math.sqrt(currentBall.vx * currentBall.vx + currentBall.vy * currentBall.vy);
     if (speed === 0) return;
 
     const directionX = currentBall.vx / speed;
     const directionY = currentBall.vy / speed;
     const perpendicularX = -directionY;
     const perpendicularY = directionX;
-    const time = performance.now() * 0.016;
+    const time = renderTimestamp * 0.016;
+    const useDetailedEffects = renderQuality === 'high';
+    const trailCount = useDetailedEffects ? 7 : 4;
 
     ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalCompositeOperation = useDetailedEffects ? 'lighter' : 'source-over';
     ctx.shadowColor = '#ff4d19';
-    ctx.shadowBlur = 7;
+    ctx.shadowBlur = useDetailedEffects ? 6 : 0;
 
-    for (let index = 7; index >= 1; index -= 1) {
-      const progress = index / 7;
+    for (let index = trailCount; index >= 1; index -= 1) {
+      const progress = index / trailCount;
       const distance = index * 3.4;
       const wobble = Math.sin(time + index * 1.3) * 1.5 * progress;
       const trailX = currentBall.x - directionX * distance + perpendicularX * wobble;
@@ -1019,15 +1066,24 @@ const GameMobile = (() => {
     ctx.restore();
   }
 
-  function drawPaddle(paddle, color) {
+  function getGrowWarningOpacity(side, renderTimestamp) {
+    const remainingSeconds = powerUp.effects.enlarged[side];
+    if (remainingSeconds <= 0 || remainingSeconds > GROW_WARNING_SECONDS) return 1;
+
+    return Math.floor(renderTimestamp / GROW_WARNING_BLINK_MS) % 2 === 0 ? 1 : 0.28;
+  }
+
+  function drawPaddle(paddle, color, opacity = 1) {
+    ctx.globalAlpha = opacity;
     ctx.fillStyle = color;
     ctx.beginPath();
-    if (typeof ctx.roundRect === 'function') {
+    if (supportsRoundRect) {
       ctx.roundRect(paddle.x, paddle.y, paddle.w, paddle.h, 3);
     } else {
       ctx.rect(paddle.x, paddle.y, paddle.w, paddle.h);
     }
     ctx.fill();
+    ctx.globalAlpha = 1;
   }
 
   function beginCountdown(seconds, nextMode = CountdownMode.START_MATCH) {
@@ -1038,6 +1094,48 @@ const GameMobile = (() => {
     elements.countdown.classList.remove('hidden');
     updateCountdown(0);
     updateControlUI();
+  }
+
+  function resetPerformanceMonitor() {
+    performanceFrameCount = 0;
+    performanceElapsedMs = 0;
+    previousPerformanceTimestamp = 0;
+  }
+
+  function enableLowQuality() {
+    if (renderQuality === 'low') return;
+
+    renderQuality = 'low';
+    canvas.dataset.renderQuality = renderQuality;
+    ctx.imageSmoothingEnabled = false;
+    resetPerformanceMonitor();
+    configureCanvasResolution();
+  }
+
+  function monitorRenderPerformance(timestamp) {
+    if (renderQuality === 'low' || state !== GameState.PLAYING) {
+      previousPerformanceTimestamp = timestamp;
+      return;
+    }
+
+    if (previousPerformanceTimestamp === 0) {
+      previousPerformanceTimestamp = timestamp;
+      return;
+    }
+
+    const frameDuration = Math.min(timestamp - previousPerformanceTimestamp, 100);
+    previousPerformanceTimestamp = timestamp;
+    performanceElapsedMs += frameDuration;
+    performanceFrameCount += 1;
+
+    if (performanceFrameCount < PERFORMANCE_SAMPLE_FRAMES) return;
+
+    const averageFrameDuration = performanceElapsedMs / performanceFrameCount;
+    if (averageFrameDuration > SLOW_FRAME_THRESHOLD_MS) enableLowQuality();
+    else {
+      performanceFrameCount = 0;
+      performanceElapsedMs = 0;
+    }
   }
 
   function updateCountdown(deltaSeconds) {
@@ -1064,6 +1162,7 @@ const GameMobile = (() => {
   function startLoop() {
     if (frameId !== null || !isMatchActive()) return;
     lastFrameTime = 0;
+    resetPerformanceMonitor();
     frameId = requestAnimationFrame(loop);
   }
 
@@ -1071,24 +1170,25 @@ const GameMobile = (() => {
     if (frameId !== null) cancelAnimationFrame(frameId);
     frameId = null;
     lastFrameTime = 0;
+    resetPerformanceMonitor();
   }
 
   function loop(timestamp) {
     frameId = null;
     if (!isMatchActive()) return;
 
-    const deltaSeconds = lastFrameTime
-      ? clamp((timestamp - lastFrameTime) / 1000, 0, MAX_DELTA_SECONDS)
-      : 0;
+    monitorRenderPerformance(timestamp);
+    const elapsedSeconds = lastFrameTime ? Math.max(0, (timestamp - lastFrameTime) / 1000) : 0;
+    const deltaSeconds = Math.min(elapsedSeconds, MAX_DELTA_SECONDS);
     lastFrameTime = timestamp;
 
     updatePaddles(deltaSeconds);
-    if (state === GameState.COUNTDOWN) updateCountdown(deltaSeconds);
+    if (state === GameState.COUNTDOWN) updateCountdown(Math.min(elapsedSeconds, 0.25));
     else {
       updateBall(deltaSeconds);
       if (state === GameState.PLAYING) updatePowerUp(deltaSeconds);
     }
-    draw();
+    draw(timestamp);
 
     if (isMatchActive()) frameId = requestAnimationFrame(loop);
   }
@@ -1162,6 +1262,9 @@ const GameMobile = (() => {
     });
     elements.menuLogo.classList.toggle('hidden', validScreen !== 'mainMenu');
     elements.startMenu.classList.toggle('settings-open', validScreen === 'settingsMenu');
+    elements.menuTitle.textContent = validScreen === 'settingsMenu'
+      ? t('settings')
+      : 'Ping Pong The Game';
   }
 
   function openMenu(screenName = 'mainMenu') {
@@ -1326,6 +1429,9 @@ const GameMobile = (() => {
 
   function refreshLocalizedUI() {
     syncPreferenceControls();
+    elements.menuTitle.textContent = elements.startMenu.classList.contains('settings-open')
+      ? t('settings')
+      : 'Ping Pong The Game';
     updateModeUI();
     updateControlUI();
     updateWinningScoreUI();

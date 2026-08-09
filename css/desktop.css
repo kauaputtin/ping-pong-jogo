@@ -388,7 +388,7 @@ h1 {
 }
 
 .audio-settings {
-  margin-top: 14px;
+  margin-top: 26px;
 }
 
 .setting-toggle {
@@ -425,7 +425,7 @@ h1 {
 
 .language-setting {
   display: grid;
-  margin-top: 14px;
+  margin-top: 26px;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 12px;
