@@ -30,7 +30,7 @@ const GameMobile = (() => {
   const POWER_UP_MAX_SPAWN_SECONDS = 20;
   const POWER_UP_VISIBLE_SECONDS = 8;
   const POWER_UP_RADIUS = 18;
-  const POWER_UP_SPEED_MULTIPLIER = 1.4;
+  const POWER_UP_SPEED_MULTIPLIER = 2;
   const POWER_UP_SAFE_MARGIN_X = 42;
   const POWER_UP_CENTER_GAP = 30;
   const POWER_UP_PADDLE_GAP = 30;

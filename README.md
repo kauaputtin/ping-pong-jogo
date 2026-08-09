@@ -24,7 +24,7 @@ A tela de configurações permite escolher a pontuação necessária para vencer
 
 ## Power-up mobile
 
-Na versão mobile, a bola pode coletar o power-up de fogo que surge aleatoriamente no campo. O jogador dono daquele lado carrega uma tacada especial para sua próxima rebatida, que transfere o fogo para a bola e aumenta sua velocidade em 40% até o adversário devolver ou a jogada terminar.
+Na versão mobile, a bola pode coletar o power-up de fogo que surge aleatoriamente no campo. O jogador dono daquele lado carrega uma tacada especial para sua próxima rebatida, que transfere o fogo para a bola e dobra sua velocidade até o adversário devolver ou a jogada terminar.
 
 ## Controles
 
