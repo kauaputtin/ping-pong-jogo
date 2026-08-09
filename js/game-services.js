@@ -259,6 +259,23 @@
   });
   const effectPools = {};
   const effectPoolIndexes = {};
+  const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
+  const lowLatencyEffectNames = Object.freeze(['hit']);
+  const lowLatencyEncodedAudio = {};
+  const lowLatencyBufferPromises = {};
+  const lowLatencyBuffers = {};
+  const lowLatencySources = {};
+  let lowLatencyContext = null;
+  let synthesizedHitBuffer = null;
+
+  if (AudioContextConstructor && typeof window.fetch === 'function') {
+    lowLatencyEffectNames.forEach(name => {
+      const [source] = effectDefinitions[name];
+      lowLatencyEncodedAudio[name] = window.fetch(`${source}?v=20260809-2`)
+        .then(response => response.ok ? response.arrayBuffer() : null)
+        .catch(() => null);
+    });
+  }
 
   Object.entries(effectDefinitions).forEach(([name, [source, volume, poolSize]]) => {
     effectPools[name] = Array.from({ length: poolSize }, () => {
@@ -278,10 +295,124 @@
   }
 
   function unlockAudio() {
-    if (audioUnlocked) return;
+    const firstUnlock = !audioUnlocked;
     audioUnlocked = true;
-    primeEffect('hit');
+    prepareLowLatencyAudio();
+
+    if (!firstUnlock) return;
+    if (!AudioContextConstructor) primeEffect('hit');
     ensureMusicPlaying();
+  }
+
+  function createLowLatencyContext() {
+    if (lowLatencyContext || !AudioContextConstructor) return lowLatencyContext;
+
+    try {
+      lowLatencyContext = new AudioContextConstructor({ latencyHint: 'interactive' });
+    } catch {
+      try {
+        lowLatencyContext = new AudioContextConstructor();
+      } catch {
+        lowLatencyContext = null;
+      }
+    }
+
+    if (lowLatencyContext) synthesizedHitBuffer = createSynthesizedHitBuffer(lowLatencyContext);
+    return lowLatencyContext;
+  }
+
+  function decodeAudioBuffer(context, encodedAudio) {
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const finish = callback => value => {
+        if (settled) return;
+        settled = true;
+        callback(value);
+      };
+      const resolveOnce = finish(resolve);
+      const rejectOnce = finish(reject);
+
+      try {
+        const result = context.decodeAudioData(encodedAudio.slice(0), resolveOnce, rejectOnce);
+        if (result?.then) result.then(resolveOnce, rejectOnce);
+      } catch (error) {
+        rejectOnce(error);
+      }
+    });
+  }
+
+  function prepareLowLatencyAudio() {
+    const context = createLowLatencyContext();
+    if (!context) return;
+
+    if (context.state === 'suspended' || context.state === 'interrupted') {
+      context.resume().catch(() => {
+        // A following touch retries the context if the browser suspends audio.
+      });
+    }
+
+    lowLatencyEffectNames.forEach(name => {
+      if (lowLatencyBufferPromises[name] || !lowLatencyEncodedAudio[name]) return;
+
+      lowLatencyBufferPromises[name] = lowLatencyEncodedAudio[name]
+        .then(encodedAudio => encodedAudio && decodeAudioBuffer(context, encodedAudio))
+        .then(buffer => {
+          if (buffer) lowLatencyBuffers[name] = buffer;
+          return buffer;
+        })
+        .catch(() => null);
+    });
+  }
+
+  function createSynthesizedHitBuffer(context) {
+    const duration = 0.045;
+    const buffer = context.createBuffer(1, Math.ceil(context.sampleRate * duration), context.sampleRate);
+    const channel = buffer.getChannelData(0);
+
+    for (let index = 0; index < channel.length; index += 1) {
+      const progress = index / channel.length;
+      const envelope = Math.exp(-progress * 9);
+      const tone = Math.sin(2 * Math.PI * 150 * index / context.sampleRate);
+      channel[index] = (tone * 0.55 + (Math.random() * 2 - 1) * 0.45) * envelope;
+    }
+
+    return buffer;
+  }
+
+  function playLowLatencyEffect(name) {
+    if (!lowLatencyEffectNames.includes(name)) return false;
+
+    const context = lowLatencyContext;
+    if (!context || context.state !== 'running') return false;
+
+    const source = context.createBufferSource();
+    const gain = context.createGain();
+    const [, volume] = effectDefinitions[name];
+    source.buffer = lowLatencyBuffers[name] || synthesizedHitBuffer;
+    gain.gain.value = volume * EFFECT_VOLUME_SCALE;
+    source.connect(gain);
+    gain.connect(context.destination);
+
+    if (!lowLatencySources[name]) lowLatencySources[name] = new Set();
+    lowLatencySources[name].add(source);
+    source.addEventListener('ended', () => {
+      lowLatencySources[name]?.delete(source);
+      source.disconnect();
+      gain.disconnect();
+    }, { once: true });
+    source.start(0);
+    return true;
+  }
+
+  function stopLowLatencyEffect(name) {
+    lowLatencySources[name]?.forEach(source => {
+      try {
+        source.stop();
+      } catch {
+        // The source may already have ended between the check and stop call.
+      }
+    });
+    lowLatencySources[name]?.clear();
   }
 
   function primeEffect(name) {
@@ -310,8 +441,10 @@
     soundEnabled = Boolean(enabled);
     saveValue(STORAGE_KEYS.sound, String(soundEnabled));
     if (soundEnabled && audioUnlocked) {
-      primeEffect('hit');
+      prepareLowLatencyAudio();
+      if (!AudioContextConstructor) primeEffect('hit');
     } else if (!soundEnabled) {
+      lowLatencyEffectNames.forEach(stopLowLatencyEffect);
       Object.values(effectPools).flat().forEach(audio => {
         audio.pause();
         audio.currentTime = 0;
@@ -321,6 +454,7 @@
 
   function playEffect(name) {
     if (!soundEnabled || !effectPools[name]) return;
+    if (playLowLatencyEffect(name)) return;
 
     const pool = effectPools[name];
     let index = pool.findIndex(audio => audio.paused || audio.ended);
@@ -338,17 +472,24 @@
   function stopEffect(name) {
     if (!effectPools[name]) return;
 
+    stopLowLatencyEffect(name);
     effectPools[name].forEach(audio => {
       audio.pause();
       audio.currentTime = 0;
     });
   }
 
-  document.addEventListener('pointerdown', unlockAudio, { capture: true, once: true });
-  document.addEventListener('keydown', unlockAudio, { capture: true, once: true });
-  window.addEventListener('pageshow', ensureMusicPlaying);
+  document.addEventListener('pointerdown', unlockAudio, { capture: true });
+  document.addEventListener('keydown', unlockAudio, { capture: true });
+  window.addEventListener('pageshow', () => {
+    if (audioUnlocked) prepareLowLatencyAudio();
+    ensureMusicPlaying();
+  });
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) ensureMusicPlaying();
+    if (!document.hidden) {
+      if (audioUnlocked) prepareLowLatencyAudio();
+      ensureMusicPlaying();
+    }
   });
   backgroundMusic.addEventListener('ended', ensureMusicPlaying);
 
