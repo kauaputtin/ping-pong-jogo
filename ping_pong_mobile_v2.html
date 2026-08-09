@@ -55,6 +55,7 @@
           </div>
 
           <section id="start-menu" role="dialog" aria-modal="true" aria-labelledby="menu-title">
+            <img id="menu-logo" class="menu-logo" src="img/logo.png" alt="" width="52" height="52" />
             <h2 id="menu-title" class="menu-title">Ping Pong The Game</h2>
 
             <div class="menu-screen is-active" data-menu-screen="mainMenu">
@@ -125,12 +126,45 @@
           </section>
 
           <section id="pause-menu" class="hidden" role="dialog" aria-modal="true" aria-labelledby="pause-menu-title">
-            <h2 id="pause-menu-title" class="menu-title">Pausado</h2>
-            <div class="menu-actions pause-actions">
-              <button class="menu-btn primary" id="btn-resume" type="button">Continuar</button>
-              <button class="menu-btn" id="btn-menu" type="button">Menu</button>
-              <button class="menu-btn" id="btn-reset" type="button">Reiniciar</button>
-              <button class="menu-btn" id="btn-settings" type="button">Configurações</button>
+            <div class="pause-screen is-active" data-pause-screen="actions">
+              <h2 id="pause-menu-title" class="menu-title">Pausado</h2>
+              <div class="menu-actions pause-actions">
+                <button class="menu-btn primary" id="btn-resume" type="button">Continuar</button>
+                <button class="menu-btn" id="btn-settings" type="button">Configurações</button>
+                <button class="menu-btn" id="btn-reset" type="button">Reiniciar</button>
+                <button class="menu-btn" id="btn-menu" type="button">Voltar ao Menu</button>
+              </div>
+            </div>
+
+            <div class="pause-screen" data-pause-screen="settings" hidden>
+              <h2 class="menu-title">Configurações</h2>
+              <fieldset class="setting-group">
+                <legend>Pontos para vencer</legend>
+                <div class="segmented-control" role="group" aria-label="Pontos para vencer durante a pausa">
+                  <button type="button" data-winning-score="3" aria-pressed="false">3</button>
+                  <button type="button" data-winning-score="5" aria-pressed="false">5</button>
+                  <button type="button" data-winning-score="7" aria-pressed="false">7</button>
+                  <button type="button" data-winning-score="10" aria-pressed="false">10</button>
+                </div>
+              </fieldset>
+              <div class="menu-actions pause-secondary-actions">
+                <button class="menu-btn back-btn" id="btn-pause-settings-back" type="button">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M19 12H5"></path>
+                    <path d="m12 19-7-7 7-7"></path>
+                  </svg>
+                  <span>Voltar</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="pause-screen" data-pause-screen="restartConfirm" hidden>
+              <h2 class="menu-title">Reiniciar partida?</h2>
+              <p class="pause-confirmation-text">Tem certeza que deseja reiniciar?</p>
+              <div class="pause-confirmation-actions">
+                <button class="menu-btn primary" id="btn-reset-confirm" type="button">Sim</button>
+                <button class="menu-btn" id="btn-reset-cancel" type="button">Não</button>
+              </div>
             </div>
           </section>
         </div>

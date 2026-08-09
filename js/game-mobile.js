@@ -5,6 +5,9 @@ const GameMobile = (() => {
   const ctx = canvas.getContext('2d', { alpha: false });
   const backgroundCanvas = document.createElement('canvas');
   const backgroundCtx = backgroundCanvas.getContext('2d', { alpha: false });
+  const powerUpImage = new Image();
+  powerUpImage.decoding = 'async';
+  powerUpImage.src = 'img/logo.png';
 
   const WIDTH = 380;
   const HEIGHT = 640;
@@ -15,6 +18,7 @@ const GameMobile = (() => {
   const DRAG_PADDLE_SPEED = 1200;
   const FIELD_DISPLAY_SCALE = 0.86;
   const MAX_FIELD_WIDTH = 330;
+  const SCORE_GUTTER_WIDTH = 38;
   const DEFAULT_WINNING_SCORE = 5;
   const WINNING_SCORE_OPTIONS = Object.freeze([3, 5, 7, 10]);
   const WINNING_SCORE_STORAGE_KEY = 'ping-pong-winning-score';
@@ -22,6 +26,14 @@ const GameMobile = (() => {
   const RALLY_SPEEDUP_EVERY_HITS = 4;
   const RALLY_SPEEDUP_STEP = 0.05;
   const MAX_RALLY_SPEED_MULTIPLIER = 1.25;
+  const POWER_UP_MIN_SPAWN_SECONDS = 10;
+  const POWER_UP_MAX_SPAWN_SECONDS = 20;
+  const POWER_UP_VISIBLE_SECONDS = 8;
+  const POWER_UP_RADIUS = 18;
+  const POWER_UP_SPEED_MULTIPLIER = 1.4;
+  const POWER_UP_SAFE_MARGIN_X = 42;
+  const POWER_UP_CENTER_GAP = 30;
+  const POWER_UP_PADDLE_GAP = 30;
 
   const GameState = Object.freeze({
     MENU: 'MENU',
@@ -30,6 +42,12 @@ const GameMobile = (() => {
     PLAYING: 'PLAYING',
     PAUSED: 'PAUSED',
     GAME_OVER: 'GAME_OVER'
+  });
+
+  const PowerUpPhase = Object.freeze({
+    WAITING: 'WAITING',
+    VISIBLE: 'VISIBLE',
+    CONSUMED: 'CONSUMED'
   });
 
   const CPU_SETTINGS = Object.freeze({
@@ -43,6 +61,7 @@ const GameMobile = (() => {
     controls: document.getElementById('controls'),
     overlay: document.getElementById('overlay'),
     startMenu: document.getElementById('start-menu'),
+    menuLogo: document.getElementById('menu-logo'),
     pauseMenu: document.getElementById('pause-menu'),
     readyOverlay: document.getElementById('ready-overlay'),
     startPrompt: document.getElementById('start-prompt'),
@@ -64,10 +83,14 @@ const GameMobile = (() => {
     pauseButton: document.getElementById('btn-pause'),
     resumeButton: document.getElementById('btn-resume'),
     resetButton: document.getElementById('btn-reset'),
-    settingsButton: document.getElementById('btn-settings')
+    resetConfirmButton: document.getElementById('btn-reset-confirm'),
+    resetCancelButton: document.getElementById('btn-reset-cancel'),
+    settingsButton: document.getElementById('btn-settings'),
+    pauseSettingsBackButton: document.getElementById('btn-pause-settings-back')
   };
 
   const menuScreens = Array.from(document.querySelectorAll('[data-menu-screen]'));
+  const pauseScreens = Array.from(document.querySelectorAll('[data-pause-screen]'));
   const menuBackButtons = Array.from(document.querySelectorAll('[data-menu-back]'));
   const difficultyButtons = Array.from(document.querySelectorAll('[data-difficulty]'));
   const winningScoreButtons = Array.from(document.querySelectorAll('[data-winning-score]'));
@@ -93,6 +116,7 @@ const GameMobile = (() => {
   let cpuTargetX = WIDTH / 2;
   let cpuDecisionTimer = 0;
   let rallyHits = 0;
+  let powerUp = createPowerUpState();
 
   const activePointers = new Map();
   const pointerTargets = { top: null, bottom: null };
@@ -145,11 +169,14 @@ const GameMobile = (() => {
       const hintHeight = elements.hint?.getBoundingClientRect().height || 0;
       const messageHeight = elements.message?.getBoundingClientRect().height || 0;
       const availableHeight = Math.max(120, viewportHeight - headerHeight - controlsHeight - hintHeight - messageHeight - 42);
-      const availableWidth = Math.max(140, Math.min(viewportWidth - 16, elements.field.parentElement.clientWidth));
+      const availableWidth = Math.max(
+        140,
+        Math.min(viewportWidth - SCORE_GUTTER_WIDTH * 2, elements.field.parentElement.clientWidth)
+      );
 
       let height = availableHeight * FIELD_DISPLAY_SCALE;
       let width = height * (WIDTH / HEIGHT);
-      const maxWidth = Math.min(availableWidth * FIELD_DISPLAY_SCALE, MAX_FIELD_WIDTH);
+      const maxWidth = Math.min(availableWidth, MAX_FIELD_WIDTH);
 
       if (width > maxWidth) {
         width = maxWidth;
@@ -222,6 +249,147 @@ const GameMobile = (() => {
     pointerTargets.bottom = null;
   }
 
+  function randomBetween(min, max) {
+    return min + Math.random() * (max - min);
+  }
+
+  function getRandomPowerUpDelay() {
+    return randomBetween(POWER_UP_MIN_SPAWN_SECONDS, POWER_UP_MAX_SPAWN_SECONDS);
+  }
+
+  function createPowerUpState() {
+    return {
+      spawn: {
+        phase: PowerUpPhase.WAITING,
+        cooldown: getRandomPowerUpDelay(),
+        visibleRemaining: 0,
+        x: 0,
+        y: 0,
+        side: null
+      },
+      charged: { top: false, bottom: false },
+      ballEffect: { active: false, owner: null },
+      sideStreak: { side: null, count: 0 }
+    };
+  }
+
+  function resetPowerUpState() {
+    powerUp = createPowerUpState();
+  }
+
+  function resetPowerUpRound() {
+    const { sideStreak } = powerUp;
+    powerUp = createPowerUpState();
+    powerUp.sideStreak = sideStreak;
+  }
+
+  function scheduleNextPowerUp(phase) {
+    powerUp.spawn.phase = phase;
+    powerUp.spawn.cooldown = getRandomPowerUpDelay();
+    powerUp.spawn.visibleRemaining = 0;
+    powerUp.spawn.x = 0;
+    powerUp.spawn.y = 0;
+    powerUp.spawn.side = null;
+  }
+
+  function choosePowerUpSide() {
+    const streak = powerUp.sideStreak;
+    const side = streak.side && streak.count >= 2
+      ? (streak.side === 'top' ? 'bottom' : 'top')
+      : (Math.random() < 0.5 ? 'top' : 'bottom');
+
+    if (side === streak.side) streak.count += 1;
+    else {
+      streak.side = side;
+      streak.count = 1;
+    }
+    return side;
+  }
+
+  function spawnPowerUp() {
+    const side = choosePowerUpSide();
+    const minY = side === 'top'
+      ? topPaddle.y + topPaddle.h + POWER_UP_RADIUS + POWER_UP_PADDLE_GAP
+      : HEIGHT / 2 + POWER_UP_CENTER_GAP + POWER_UP_RADIUS;
+    const maxY = side === 'top'
+      ? HEIGHT / 2 - POWER_UP_CENTER_GAP - POWER_UP_RADIUS
+      : bottomPaddle.y - POWER_UP_RADIUS - POWER_UP_PADDLE_GAP;
+
+    let x = WIDTH / 2;
+    let y = (minY + maxY) / 2;
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      const candidateX = randomBetween(
+        POWER_UP_SAFE_MARGIN_X + POWER_UP_RADIUS,
+        WIDTH - POWER_UP_SAFE_MARGIN_X - POWER_UP_RADIUS
+      );
+      const candidateY = randomBetween(minY, maxY);
+      const safeFromBall = !ball || Math.hypot(candidateX - ball.x, candidateY - ball.y) > POWER_UP_RADIUS + ball.r + 36;
+
+      x = candidateX;
+      y = candidateY;
+      if (safeFromBall) break;
+    }
+
+    powerUp.spawn.phase = PowerUpPhase.VISIBLE;
+    powerUp.spawn.cooldown = 0;
+    powerUp.spawn.visibleRemaining = POWER_UP_VISIBLE_SECONDS;
+    powerUp.spawn.x = x;
+    powerUp.spawn.y = y;
+    powerUp.spawn.side = side;
+  }
+
+  function updatePowerUp(deltaSeconds) {
+    if (powerUp.spawn.phase === PowerUpPhase.VISIBLE) {
+      powerUp.spawn.visibleRemaining -= deltaSeconds;
+      if (powerUp.spawn.visibleRemaining <= 0) scheduleNextPowerUp(PowerUpPhase.WAITING);
+      return;
+    }
+
+    powerUp.spawn.cooldown -= deltaSeconds;
+    if (powerUp.spawn.cooldown <= 0) spawnPowerUp();
+  }
+
+  function segmentTouchesCircle(startX, startY, endX, endY, centerX, centerY, radius) {
+    const segmentX = endX - startX;
+    const segmentY = endY - startY;
+    const lengthSquared = segmentX * segmentX + segmentY * segmentY;
+    const projection = lengthSquared === 0
+      ? 0
+      : clamp(
+        ((centerX - startX) * segmentX + (centerY - startY) * segmentY) / lengthSquared,
+        0,
+        1
+      );
+    const closestX = startX + segmentX * projection;
+    const closestY = startY + segmentY * projection;
+    const distanceX = closestX - centerX;
+    const distanceY = closestY - centerY;
+    return distanceX * distanceX + distanceY * distanceY <= radius * radius;
+  }
+
+  function collectPowerUpIfHit(previousX, previousY) {
+    if (powerUp.spawn.phase !== PowerUpPhase.VISIBLE || !ball) return;
+
+    const touchesPowerUp = segmentTouchesCircle(
+      previousX,
+      previousY,
+      ball.x,
+      ball.y,
+      powerUp.spawn.x,
+      powerUp.spawn.y,
+      powerUp.spawn.side ? POWER_UP_RADIUS + ball.r : 0
+    );
+    if (!touchesPowerUp) return;
+
+    powerUp.charged[powerUp.spawn.side] = true;
+    scheduleNextPowerUp(PowerUpPhase.CONSUMED);
+  }
+
+  function deactivateBallPower() {
+    powerUp.ballEffect.active = false;
+    powerUp.ballEffect.owner = null;
+  }
+
   function initMatch(resetScore = true) {
     topPaddle = {
       x: WIDTH / 2 - PADDLE_WIDTH / 2,
@@ -242,6 +410,7 @@ const GameMobile = (() => {
     openingDropAnimation = null;
     cpuTargetX = WIDTH / 2;
     cpuDecisionTimer = 0;
+    resetPowerUpState();
     updateScoreUI();
   }
 
@@ -363,6 +532,7 @@ const GameMobile = (() => {
     const previousY = ball.y;
     ball.x += ball.vx * deltaSeconds;
     ball.y += ball.vy * deltaSeconds;
+    collectPowerUpIfHit(previousX, previousY);
 
     if (ball.x - ball.r <= 0 && ball.vx < 0) {
       ball.x = ball.r;
@@ -374,10 +544,10 @@ const GameMobile = (() => {
 
     if (ball.vy < 0 && sweptPaddleCollision(ball, topPaddle, previousX, previousY, 'top')) {
       ball.y = topPaddle.y + topPaddle.h + ball.r;
-      reflectBall(ball, topPaddle, 1);
+      reflectBall(ball, topPaddle, 1, 'top');
     } else if (ball.vy > 0 && sweptPaddleCollision(ball, bottomPaddle, previousX, previousY, 'bottom')) {
       ball.y = bottomPaddle.y - ball.r;
-      reflectBall(ball, bottomPaddle, -1);
+      reflectBall(ball, bottomPaddle, -1, 'bottom');
     }
 
     if (ball.y + ball.r < 0) {
@@ -388,15 +558,27 @@ const GameMobile = (() => {
     if (ball.y - ball.r > HEIGHT) scorePoint('top');
   }
 
-  function reflectBall(currentBall, paddle, verticalDirection) {
+  function reflectBall(currentBall, paddle, verticalDirection, hitter) {
     const offset = clamp(
       (currentBall.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2),
       -1,
       1
     );
+
+    if (powerUp.ballEffect.active && powerUp.ballEffect.owner !== hitter) {
+      deactivateBallPower();
+    }
+
     rallyHits += 1;
-    const speed = getRallyBallSpeed();
+    let speed = getRallyBallSpeed();
     const angle = offset * 0.85;
+
+    if (powerUp.charged[hitter]) {
+      powerUp.charged[hitter] = false;
+      powerUp.ballEffect.active = true;
+      powerUp.ballEffect.owner = hitter;
+    }
+    if (powerUp.ballEffect.active) speed *= POWER_UP_SPEED_MULTIPLIER;
 
     currentBall.vx = speed * Math.sin(angle);
     currentBall.vy = verticalDirection * Math.abs(speed * Math.cos(angle));
@@ -509,6 +691,7 @@ const GameMobile = (() => {
   }
 
   function scorePoint(scorer) {
+    resetPowerUpRound();
     scores[scorer] += 1;
     updateScoreUI();
 
@@ -539,15 +722,112 @@ const GameMobile = (() => {
     if (!topPaddle || !bottomPaddle) return;
 
     ctx.drawImage(backgroundCanvas, 0, 0, WIDTH, HEIGHT);
+    drawPowerUp();
+    if (powerUp.charged.top) drawPaddleFire(topPaddle, 'top');
+    if (powerUp.charged.bottom) drawPaddleFire(bottomPaddle, 'bottom');
     drawPaddle(topPaddle, '#60a5fa');
     drawPaddle(bottomPaddle, '#f87171');
 
     if (ball) {
+      if (powerUp.ballEffect.active) drawBallFire(ball);
       ctx.fillStyle = '#fff';
+      ctx.shadowColor = powerUp.ballEffect.active ? '#ff7a18' : 'transparent';
+      ctx.shadowBlur = powerUp.ballEffect.active ? 10 : 0;
       ctx.beginPath();
       ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
       ctx.fill();
+      ctx.shadowBlur = 0;
     }
+  }
+
+  function drawPowerUp() {
+    if (powerUp.spawn.phase !== PowerUpPhase.VISIBLE) return;
+
+    const { x, y } = powerUp.spawn;
+    const pulse = 1 + Math.sin(performance.now() * 0.008) * 0.07;
+    const size = POWER_UP_RADIUS * 2.25 * pulse;
+
+    ctx.save();
+    ctx.globalAlpha = 0.95;
+    ctx.shadowColor = '#ff6a00';
+    ctx.shadowBlur = 12;
+    ctx.strokeStyle = 'rgba(255, 184, 48, 0.85)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(x, y, POWER_UP_RADIUS * pulse, 0, Math.PI * 2);
+    ctx.stroke();
+
+    if (powerUpImage.complete && powerUpImage.naturalWidth > 0) {
+      ctx.drawImage(powerUpImage, x - size / 2, y - size / 2, size, size);
+    } else {
+      ctx.fillStyle = '#ff5a36';
+      ctx.beginPath();
+      ctx.arc(x, y, POWER_UP_RADIUS * 0.72, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawPaddleFire(paddle, side) {
+    const direction = side === 'top' ? 1 : -1;
+    const time = performance.now() * 0.012;
+    const flameCount = 7;
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.shadowColor = '#ff5a1f';
+    ctx.shadowBlur = 8;
+
+    for (let index = 0; index < flameCount; index += 1) {
+      const baseX = paddle.x + (index + 0.5) * paddle.w / flameCount;
+      const flicker = Math.sin(time + index * 1.7);
+      const flameHeight = 8 + (flicker + 1) * 2.4;
+      const flameY = side === 'top'
+        ? paddle.y + paddle.h + flameHeight * 0.35
+        : paddle.y - flameHeight * 0.35;
+
+      ctx.fillStyle = index % 2 === 0 ? 'rgba(255, 74, 30, 0.82)' : 'rgba(255, 166, 24, 0.78)';
+      ctx.beginPath();
+      ctx.ellipse(baseX + flicker * 1.4, flameY, 3.2, flameHeight / 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = 'rgba(255, 224, 92, 0.7)';
+      ctx.beginPath();
+      ctx.ellipse(baseX, flameY - direction * 1.2, 1.35, flameHeight * 0.27, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawBallFire(currentBall) {
+    const speed = Math.hypot(currentBall.vx, currentBall.vy);
+    if (speed === 0) return;
+
+    const directionX = currentBall.vx / speed;
+    const directionY = currentBall.vy / speed;
+    const perpendicularX = -directionY;
+    const perpendicularY = directionX;
+    const time = performance.now() * 0.016;
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.shadowColor = '#ff4d19';
+    ctx.shadowBlur = 7;
+
+    for (let index = 7; index >= 1; index -= 1) {
+      const progress = index / 7;
+      const distance = index * 3.4;
+      const wobble = Math.sin(time + index * 1.3) * 1.5 * progress;
+      const trailX = currentBall.x - directionX * distance + perpendicularX * wobble;
+      const trailY = currentBall.y - directionY * distance + perpendicularY * wobble;
+
+      ctx.globalAlpha = (1 - progress * 0.72) * 0.85;
+      ctx.fillStyle = index % 2 === 0 ? '#ff4d1f' : '#ffb31a';
+      ctx.beginPath();
+      ctx.arc(trailX, trailY, Math.max(1.2, currentBall.r * (1 - progress * 0.62)), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
   }
 
   function drawPaddle(paddle, color) {
@@ -612,7 +892,10 @@ const GameMobile = (() => {
 
     updatePaddles(deltaSeconds);
     if (state === GameState.COUNTDOWN) updateCountdown(deltaSeconds);
-    else updateBall(deltaSeconds);
+    else {
+      updateBall(deltaSeconds);
+      if (state === GameState.PLAYING) updatePowerUp(deltaSeconds);
+    }
     draw();
 
     if (isMatchActive()) frameId = requestAnimationFrame(loop);
@@ -648,6 +931,7 @@ const GameMobile = (() => {
   }
 
   function showPauseMenu() {
+    setPauseScreen('actions');
     elements.pauseMenu.classList.remove('hidden');
     elements.overlay.classList.add('pause-open');
     elements.pauseButton.setAttribute('aria-expanded', 'true');
@@ -658,6 +942,19 @@ const GameMobile = (() => {
     elements.pauseMenu.classList.add('hidden');
     elements.overlay.classList.remove('pause-open');
     elements.pauseButton.setAttribute('aria-expanded', 'false');
+  }
+
+  function setPauseScreen(screenName) {
+    const validScreen = pauseScreens.some(screen => screen.dataset.pauseScreen === screenName)
+      ? screenName
+      : 'actions';
+
+    pauseScreens.forEach(screen => {
+      const isActive = screen.dataset.pauseScreen === validScreen;
+      screen.hidden = !isActive;
+      screen.classList.toggle('is-active', isActive);
+      screen.setAttribute('aria-hidden', String(!isActive));
+    });
   }
 
   function setMenuScreen(screenName) {
@@ -671,6 +968,7 @@ const GameMobile = (() => {
       screen.classList.toggle('is-active', isActive);
       screen.setAttribute('aria-hidden', String(!isActive));
     });
+    elements.menuLogo.classList.toggle('hidden', validScreen !== 'mainMenu');
   }
 
   function openMenu(screenName = 'mainMenu') {
@@ -831,8 +1129,11 @@ const GameMobile = (() => {
   elements.menuButton.addEventListener('click', () => openMenu());
   elements.pauseButton.addEventListener('click', togglePause);
   elements.resumeButton.addEventListener('click', resumeGame);
-  elements.resetButton.addEventListener('click', resetMatch);
-  elements.settingsButton.addEventListener('click', () => openMenu('settingsMenu'));
+  elements.resetButton.addEventListener('click', () => setPauseScreen('restartConfirm'));
+  elements.resetConfirmButton.addEventListener('click', resetMatch);
+  elements.resetCancelButton.addEventListener('click', () => setPauseScreen('actions'));
+  elements.settingsButton.addEventListener('click', () => setPauseScreen('settings'));
+  elements.pauseSettingsBackButton.addEventListener('click', () => setPauseScreen('actions'));
   menuBackButtons.forEach(button => {
     button.addEventListener('click', () => setMenuScreen(button.dataset.menuBack || 'mainMenu'));
   });

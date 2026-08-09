@@ -16,11 +16,15 @@ Também é possível abrir cada versão diretamente durante o desenvolvimento.
 - **1 Jogador:** jogador local contra a CPU, com dificuldade escolhida antes da partida.
 - **2 Jogadores:** multiplayer local no mesmo dispositivo.
 
-No modo de um jogador, escolha a dificuldade e clique na mensagem central para iniciar a contagem regressiva de três segundos. O botão **Reiniciar** inicia novamente o modo atual; o botão **Menu** encerra a partida e volta ao menu principal.
+No modo de um jogador, escolha a dificuldade e clique na mensagem central para iniciar a contagem regressiva de três segundos. Na versão mobile, as ações da partida ficam dentro do menu de pausa e o reinício exige confirmação.
 
 ## Configurações
 
-A tela de configurações está reservada para opções futuras e permanece sem ajustes disponíveis. Velocidade da bola, pontuação e controles usam valores fixos em cada versão; a dificuldade da CPU é escolhida ao entrar no modo de um jogador.
+A tela de configurações permite escolher a pontuação necessária para vencer. A dificuldade da CPU é selecionada ao entrar no modo de um jogador.
+
+## Power-up mobile
+
+Na versão mobile, a bola pode coletar o power-up de fogo que surge aleatoriamente no campo. O jogador dono daquele lado carrega uma tacada especial para sua próxima rebatida, que transfere o fogo para a bola e aumenta sua velocidade em 40% até o adversário devolver ou a jogada terminar.
 
 ## Controles
 
@@ -44,10 +48,12 @@ ping-pong-jogo/
 |-- css/
 |   |-- desktop.css
 |   `-- mobile.css
+|-- img/
+|   `-- logo.png
 |-- js/
 |   |-- game-desktop.js
 |   `-- game-mobile.js
 `-- README.md
 ```
 
-Cada versão mantém uma única instância do loop com `requestAnimationFrame` e estados explícitos de menu, contagem regressiva, partida, pausa e fim de jogo. A física usa `deltaTime` limitado, e a partida pausa quando a página perde visibilidade.
+Cada versão mantém uma única instância do loop com `requestAnimationFrame` e estados explícitos de menu, contagem regressiva, partida, pausa e fim de jogo. A física usa `deltaTime` limitado, e a partida pausa quando a página perde visibilidade. No mobile, spawn, coleta e efeitos do power-up também são atualizados pelo mesmo loop.
