@@ -13,6 +13,8 @@ const GameMobile = (() => {
   const BALL_RADIUS = 6;
   const BALL_SPEED = 420;
   const DRAG_PADDLE_SPEED = 1200;
+  const FIELD_DISPLAY_SCALE = 0.86;
+  const MAX_FIELD_WIDTH = 330;
   const DEFAULT_WINNING_SCORE = 5;
   const WINNING_SCORE_OPTIONS = Object.freeze([3, 5, 7, 10]);
   const WINNING_SCORE_STORAGE_KEY = 'ping-pong-winning-score';
@@ -38,6 +40,7 @@ const GameMobile = (() => {
 
   const elements = {
     field: document.getElementById('field'),
+    controls: document.getElementById('controls'),
     overlay: document.getElementById('overlay'),
     startMenu: document.getElementById('start-menu'),
     pauseMenu: document.getElementById('pause-menu'),
@@ -138,15 +141,15 @@ const GameMobile = (() => {
       const viewportHeight = window.visualViewport?.height || window.innerHeight;
       const viewportWidth = window.visualViewport?.width || window.innerWidth;
       const headerHeight = document.querySelector('h1')?.getBoundingClientRect().height || 0;
-      const controlsHeight = elements.menuButton?.parentElement?.getBoundingClientRect().height || 0;
+      const controlsHeight = elements.controls?.getBoundingClientRect().height || 0;
       const hintHeight = elements.hint?.getBoundingClientRect().height || 0;
       const messageHeight = elements.message?.getBoundingClientRect().height || 0;
       const availableHeight = Math.max(120, viewportHeight - headerHeight - controlsHeight - hintHeight - messageHeight - 42);
       const availableWidth = Math.max(140, Math.min(viewportWidth - 16, elements.field.parentElement.clientWidth));
 
-      let height = availableHeight;
+      let height = availableHeight * FIELD_DISPLAY_SCALE;
       let width = height * (WIDTH / HEIGHT);
-      const maxWidth = Math.min(availableWidth, 520);
+      const maxWidth = Math.min(availableWidth * FIELD_DISPLAY_SCALE, MAX_FIELD_WIDTH);
 
       if (width > maxWidth) {
         width = maxWidth;
