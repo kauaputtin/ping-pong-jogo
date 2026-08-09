@@ -6,21 +6,25 @@
   <meta name="theme-color" content="#0d0d0d" />
   <title>Ping Pong | Desktop</title>
   <link rel="stylesheet" href="css/desktop.css" />
+  <script src="js/game-services.js" defer></script>
   <script src="js/game-desktop.js" defer></script>
 </head>
-<body>
+<body data-page-title="pageTitleDesktop">
   <h1>Ping Pong</h1>
 
-  <div id="scoreboard" aria-label="Placar" aria-live="polite">
-    <div class="score-block">
-      <span class="score-label" id="label-left">JOGADOR</span>
-      <span id="score-left">0</span>
+  <div id="score-area">
+    <div id="scoreboard" aria-label="Placar" aria-live="polite" data-i18n-aria-label="scoreboard">
+      <div class="score-block">
+        <span class="score-label" id="label-left">JOGADOR</span>
+        <span id="score-left">0</span>
+      </div>
+      <span class="score-separator" aria-hidden="true">:</span>
+      <div class="score-block">
+        <span class="score-label" id="label-right">CPU</span>
+        <span id="score-right">0</span>
+      </div>
     </div>
-    <span class="score-separator" aria-hidden="true">:</span>
-    <div class="score-block">
-      <span class="score-label" id="label-right">CPU</span>
-      <span id="score-right">0</span>
-    </div>
+    <p id="winning-score-display" role="status" aria-live="polite">Partida de 10 pontos</p>
   </div>
 
   <main id="game-container">
@@ -30,13 +34,14 @@
       height="610"
       role="application"
       aria-label="Mesa de ping pong. Use W e S ou o mouse para mover a raquete esquerda."
+      data-i18n-aria-label="desktopCanvas"
     ></canvas>
 
     <div id="overlay" class="menu-active">
       <div id="countdown" class="hidden" role="status" aria-live="assertive">3</div>
       <div id="game-over-panel" class="hidden">
         <div id="winner-message" role="status" aria-live="assertive"></div>
-        <button id="btn-game-over-reset" class="menu-btn primary" type="button">Reiniciar</button>
+        <button id="btn-game-over-reset" class="menu-btn primary" type="button" data-i18n="restart">Reiniciar</button>
       </div>
       <div id="ready-overlay" class="hidden">
         <span class="control-cue" aria-hidden="true">
@@ -46,7 +51,7 @@
             </g>
           </svg>
         </span>
-        <button id="start-prompt" type="button">Clique para começar</button>
+        <button id="start-prompt" type="button" data-i18n="clickToStart">Clique para começar</button>
       </div>
 
       <section id="start-menu" role="dialog" aria-modal="true" aria-labelledby="menu-title">
@@ -55,61 +60,80 @@
 
         <div class="menu-screen is-active" data-menu-screen="mainMenu">
           <div class="menu-actions">
-            <button class="menu-btn primary" id="play-menu" type="button">Jogar</button>
-            <button class="menu-btn" id="settings-menu" type="button">Configurações</button>
+            <button class="menu-btn primary" id="play-menu" type="button" data-i18n="play">Jogar</button>
+            <button class="menu-btn" id="settings-menu" type="button" data-i18n="settings">Configurações</button>
           </div>
         </div>
 
         <div class="menu-screen" data-menu-screen="playMenu" hidden>
-          <h3>Escolha o modo de jogo</h3>
-          <p>O jogo começa após 3 segundos</p>
+          <h3 data-i18n="chooseMode">Escolha o modo de jogo</h3>
+          <p data-i18n="startsIn">O jogo começa após 3 segundos</p>
           <div class="menu-actions">
-            <button class="menu-btn" id="menu-1p" type="button">1 Jogador</button>
-            <button class="menu-btn" id="menu-2p" type="button">2 Jogadores</button>
+            <button class="menu-btn" id="menu-1p" type="button" data-i18n="onePlayer">1 Jogador</button>
+            <button class="menu-btn" id="menu-2p" type="button" data-i18n="twoPlayers">2 Jogadores</button>
             <button class="menu-btn back-btn" type="button" data-menu-back>
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M19 12H5"></path>
                 <path d="m12 19-7-7 7-7"></path>
               </svg>
-              <span>Voltar</span>
+              <span data-i18n="back">Voltar</span>
             </button>
           </div>
         </div>
 
         <div class="menu-screen" data-menu-screen="difficultyMenu" hidden>
-          <h3>Escolha a dificuldade</h3>
+          <h3 data-i18n="chooseDifficulty">Escolha a dificuldade</h3>
           <div class="menu-actions">
-            <button class="menu-btn" type="button" data-difficulty="easy">Fácil</button>
-            <button class="menu-btn" type="button" data-difficulty="medium">Médio</button>
-            <button class="menu-btn" type="button" data-difficulty="pro">Pro</button>
+            <button class="menu-btn" type="button" data-difficulty="easy" data-i18n="easy">Fácil</button>
+            <button class="menu-btn" type="button" data-difficulty="medium" data-i18n="medium">Médio</button>
+            <button class="menu-btn" type="button" data-difficulty="pro" data-i18n="pro">Pro</button>
             <button class="menu-btn back-btn" type="button" data-menu-back="playMenu">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M19 12H5"></path>
                 <path d="m12 19-7-7 7-7"></path>
               </svg>
-              <span>Voltar</span>
+              <span data-i18n="back">Voltar</span>
             </button>
           </div>
         </div>
 
         <div class="menu-screen settings-menu-screen" data-menu-screen="settingsMenu" hidden>
-          <h3>Configurações</h3>
+          <h3 data-i18n="settings">Configurações</h3>
           <fieldset class="setting-group">
-            <legend>Pontos para vencer</legend>
-            <div class="segmented-control" role="group" aria-label="Pontos para vencer">
+            <legend data-i18n="winningScore">Pontos para vencer</legend>
+            <div class="segmented-control" role="group" aria-label="Pontos para vencer" data-i18n-aria-label="winningScore">
               <button type="button" data-winning-score="3" aria-pressed="false">3</button>
               <button type="button" data-winning-score="5" aria-pressed="false">5</button>
               <button type="button" data-winning-score="7" aria-pressed="false">7</button>
               <button type="button" data-winning-score="10" aria-pressed="false">10</button>
             </div>
           </fieldset>
+          <fieldset class="setting-group audio-settings">
+            <legend data-i18n="audio">Áudio</legend>
+            <label class="setting-toggle" for="music-toggle">
+              <span data-i18n="music">Música</span>
+              <input id="music-toggle" type="checkbox" checked />
+            </label>
+            <label class="setting-toggle" for="sound-toggle">
+              <span data-i18n="sound">Sons do jogo</span>
+              <input id="sound-toggle" type="checkbox" checked />
+            </label>
+          </fieldset>
+          <div class="language-setting">
+            <label for="language-select" data-i18n="language">Idioma</label>
+            <select id="language-select" aria-label="Selecionar idioma" data-i18n-aria-label="languageSelect">
+              <option value="pt-BR">Português</option>
+              <option value="en">English</option>
+              <option value="es">Español</option>
+            </select>
+          </div>
           <div class="menu-actions settings-actions">
             <button class="menu-btn back-btn" type="button" data-menu-back>
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M19 12H5"></path>
                 <path d="m12 19-7-7 7-7"></path>
               </svg>
-              <span>Voltar</span>
+              <span data-i18n="back">Voltar</span>
             </button>
           </div>
         </div>
@@ -117,29 +141,29 @@
 
       <section id="pause-menu" class="hidden" role="dialog" aria-modal="true" aria-labelledby="pause-menu-title">
         <div class="pause-screen is-active" data-pause-screen="actions">
-          <h2 id="pause-menu-title" class="menu-title">Pausado</h2>
+          <h2 id="pause-menu-title" class="menu-title" data-i18n="paused">Pausado</h2>
           <div class="menu-actions pause-actions">
-            <button class="menu-btn primary" id="btn-resume" type="button">Continuar</button>
-            <button class="menu-btn" id="btn-reset" type="button">Reiniciar</button>
-            <button class="menu-btn" id="btn-menu" type="button">Voltar ao Menu</button>
+            <button class="menu-btn primary" id="btn-resume" type="button" data-i18n="continue">Continuar</button>
+            <button class="menu-btn" id="btn-reset" type="button" data-i18n="restart">Reiniciar</button>
+            <button class="menu-btn" id="btn-menu" type="button" data-i18n="backToMenu">Voltar ao Menu</button>
           </div>
         </div>
 
         <div class="pause-screen" data-pause-screen="restartConfirm" hidden>
-          <h2 class="menu-title">Reiniciar partida?</h2>
-          <p class="pause-confirmation-text">Tem certeza que deseja reiniciar?</p>
+          <h2 class="menu-title" data-i18n="restartMatch">Reiniciar partida?</h2>
+          <p class="pause-confirmation-text" data-i18n="restartConfirmation">Tem certeza que deseja reiniciar?</p>
           <div class="pause-confirmation-actions">
-            <button class="menu-btn primary" id="btn-reset-confirm" type="button">Sim</button>
-            <button class="menu-btn" id="btn-reset-cancel" type="button">Não</button>
+            <button class="menu-btn primary" id="btn-reset-confirm" type="button" data-i18n="yes">Sim</button>
+            <button class="menu-btn" id="btn-reset-cancel" type="button" data-i18n="no">Não</button>
           </div>
         </div>
       </section>
     </div>
   </main>
 
-  <nav id="controls" aria-label="Controles da partida">
-    <button id="btn-pause" type="button" aria-controls="pause-menu" aria-expanded="false" disabled>Pausar</button>
-    <button id="btn-game-over-menu" class="hidden" type="button">Voltar ao Menu</button>
+  <nav id="controls" aria-label="Controles da partida" data-i18n-aria-label="matchControls">
+    <button id="btn-pause" type="button" aria-controls="pause-menu" aria-expanded="false" disabled data-i18n="pause">Pausar</button>
+    <button id="btn-game-over-menu" class="hidden" type="button" data-i18n="backToMenu">Voltar ao Menu</button>
   </nav>
 
   <p class="hint" id="hint">W / S ou Mouse - mover raquete • Esc - pausar</p>

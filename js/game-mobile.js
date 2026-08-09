@@ -1,6 +1,10 @@
 const GameMobile = (() => {
   'use strict';
 
+  const services = window.PingPongServices;
+  const audio = services.audio;
+  const t = services.t;
+
   const canvas = document.getElementById('game-canvas');
   const ctx = canvas.getContext('2d', { alpha: false });
   const backgroundCanvas = document.createElement('canvas');
@@ -8,6 +12,12 @@ const GameMobile = (() => {
   const powerUpImage = new Image();
   powerUpImage.decoding = 'async';
   powerUpImage.src = 'img/logo.png';
+  const icePowerUpImage = new Image();
+  icePowerUpImage.decoding = 'async';
+  icePowerUpImage.src = 'img/gelo.png';
+  const growPowerUpImage = new Image();
+  growPowerUpImage.decoding = 'async';
+  growPowerUpImage.src = 'img/aumenta.webp';
 
   const WIDTH = 380;
   const HEIGHT = 640;
@@ -25,14 +35,17 @@ const GameMobile = (() => {
   const MAX_DELTA_SECONDS = 1 / 30;
   const RALLY_SPEEDUP_EVERY_HITS = 4;
   const RALLY_SPEEDUP_STEP = 0.10;
-  const MAX_RALLY_SPEED_MULTIPLIER = 2;
+  const MAX_RALLY_SPEED_MULTIPLIER = 1.8;
   const POWER_UP_MIN_SPAWN_SECONDS = 10;
-  const POWER_UP_MAX_SPAWN_SECONDS = 20;
-  const POWER_UP_RADIUS = 18;
+  const POWER_UP_MAX_SPAWN_SECONDS = 15;
+  const POWER_UP_RADIUS = 25;
   const POWER_UP_SPEED_MULTIPLIER = 2;
-  const POWER_UP_SAFE_MARGIN_X = 42;
-  const POWER_UP_CENTER_GAP = 30;
+  const POWER_UP_MAX_VISIBLE = 2;
   const POWER_UP_PADDLE_GAP = 30;
+  const POWER_UP_MIN_SEPARATION = 18;
+  const ICE_FREEZE_SECONDS = 1;
+  const GROW_EFFECT_SECONDS = 8;
+  const GROW_PADDLE_MULTIPLIER = 2;
 
   const GameState = Object.freeze({
     MENU: 'MENU',
@@ -48,11 +61,12 @@ const GameMobile = (() => {
     RESUME_MATCH: 'RESUME_MATCH'
   });
 
-  const PowerUpPhase = Object.freeze({
-    WAITING: 'WAITING',
-    VISIBLE: 'VISIBLE',
-    CONSUMED: 'CONSUMED'
+  const PowerUpType = Object.freeze({
+    FIRE: 'FIRE',
+    ICE: 'ICE',
+    GROW: 'GROW'
   });
+  const POWER_UP_TYPES = Object.freeze(Object.values(PowerUpType));
 
   const CPU_SETTINGS = Object.freeze({
     easy: { ballSpeed: 336, maxSpeed: 170, reactionTime: 0.18, error: 52, aim: 0 },
@@ -70,11 +84,13 @@ const GameMobile = (() => {
     readyOverlay: document.getElementById('ready-overlay'),
     startPrompt: document.getElementById('start-prompt'),
     countdown: document.getElementById('countdown'),
+    gameOverPanel: document.getElementById('game-over-panel'),
     winnerMessage: document.getElementById('winner-message'),
     labelTop: document.getElementById('label-left'),
     labelBottom: document.getElementById('label-right'),
     scoreTop: document.getElementById('score-left'),
     scoreBottom: document.getElementById('score-right'),
+    winningScoreDisplay: document.getElementById('winning-score-display'),
     hint: document.getElementById('hint'),
     message: document.getElementById('msg'),
     touchGuide: document.getElementById('touch-guide'),
@@ -88,7 +104,12 @@ const GameMobile = (() => {
     resumeButton: document.getElementById('btn-resume'),
     resetButton: document.getElementById('btn-reset'),
     resetConfirmButton: document.getElementById('btn-reset-confirm'),
-    resetCancelButton: document.getElementById('btn-reset-cancel')
+    resetCancelButton: document.getElementById('btn-reset-cancel'),
+    gameOverResetButton: document.getElementById('btn-game-over-reset'),
+    gameOverMenuButton: document.getElementById('btn-game-over-menu'),
+    musicToggle: document.getElementById('music-toggle'),
+    soundToggle: document.getElementById('sound-toggle'),
+    languageSelect: document.getElementById('language-select')
   };
 
   const menuScreens = Array.from(document.querySelectorAll('[data-menu-screen]'));
@@ -119,7 +140,10 @@ const GameMobile = (() => {
   let cpuTargetX = WIDTH / 2;
   let cpuDecisionTimer = 0;
   let rallyHits = 0;
+  let lastPaddleHit = null;
   let powerUp = createPowerUpState();
+  let currentMessage = { key: '', variables: {} };
+  let currentWinnerMessage = { key: '', variables: {} };
 
   const activePointers = new Map();
   const pointerTargets = { top: null, bottom: null };
@@ -223,6 +247,7 @@ const GameMobile = (() => {
     refreshCanvasRect();
     const point = getCanvasPoint(event.clientX, event.clientY);
     const player = mode === 'pvp' && point.y < HEIGHT / 2 ? 'top' : 'bottom';
+    if (isPaddleFrozen(player)) return;
 
     activePointers.set(event.pointerId, player);
     pointerTargets[player] = point.x;
@@ -232,7 +257,7 @@ const GameMobile = (() => {
 
   function handlePointerMove(event) {
     const player = activePointers.get(event.pointerId);
-    if (!player) return;
+    if (!player || isPaddleFrozen(player)) return;
 
     event.preventDefault();
     pointerTargets[player] = getCanvasPoint(event.clientX, event.clientY).x;
@@ -262,16 +287,14 @@ const GameMobile = (() => {
 
   function createPowerUpState() {
     return {
-      spawn: {
-        phase: PowerUpPhase.WAITING,
-        cooldown: getRandomPowerUpDelay(),
-        x: 0,
-        y: 0,
-        side: null
-      },
+      spawn: { cooldown: getRandomPowerUpDelay() },
+      pickups: [],
       charged: { top: false, bottom: false },
       ballEffect: { active: false, owner: null },
-      sideStreak: { side: null, count: 0 }
+      effects: {
+        frozen: { top: 0, bottom: 0 },
+        enlarged: { top: 0, bottom: 0 }
+      }
     };
   }
 
@@ -280,69 +303,120 @@ const GameMobile = (() => {
   }
 
   function resetPowerUpRound() {
+    powerUp.spawn.cooldown = getRandomPowerUpDelay();
+    powerUp.pickups = [];
     powerUp.charged.top = false;
     powerUp.charged.bottom = false;
+    powerUp.effects.frozen.top = 0;
+    powerUp.effects.frozen.bottom = 0;
+    powerUp.effects.enlarged.top = 0;
+    powerUp.effects.enlarged.bottom = 0;
+    setPaddleWidth('top', PADDLE_WIDTH);
+    setPaddleWidth('bottom', PADDLE_WIDTH);
     deactivateBallPower();
   }
 
-  function scheduleNextPowerUp(phase) {
-    powerUp.spawn.phase = phase;
+  function scheduleNextPowerUp() {
     powerUp.spawn.cooldown = getRandomPowerUpDelay();
-    powerUp.spawn.x = 0;
-    powerUp.spawn.y = 0;
-    powerUp.spawn.side = null;
   }
 
-  function choosePowerUpSide() {
-    const streak = powerUp.sideStreak;
-    const side = streak.side && streak.count >= 2
-      ? (streak.side === 'top' ? 'bottom' : 'top')
-      : (Math.random() < 0.5 ? 'top' : 'bottom');
-
-    if (side === streak.side) streak.count += 1;
-    else {
-      streak.side = side;
-      streak.count = 1;
-    }
-    return side;
+  function choosePowerUpType() {
+    return POWER_UP_TYPES[Math.floor(Math.random() * POWER_UP_TYPES.length)];
   }
 
   function spawnPowerUp() {
-    const side = choosePowerUpSide();
-    const minY = side === 'top'
-      ? topPaddle.y + topPaddle.h + POWER_UP_RADIUS + POWER_UP_PADDLE_GAP
-      : HEIGHT / 2 + POWER_UP_CENTER_GAP + POWER_UP_RADIUS;
-    const maxY = side === 'top'
-      ? HEIGHT / 2 - POWER_UP_CENTER_GAP - POWER_UP_RADIUS
-      : bottomPaddle.y - POWER_UP_RADIUS - POWER_UP_PADDLE_GAP;
+    if (powerUp.pickups.length >= POWER_UP_MAX_VISIBLE) return false;
+
+    const minX = POWER_UP_RADIUS;
+    const maxX = WIDTH - POWER_UP_RADIUS;
+    const minY = topPaddle.y + topPaddle.h + POWER_UP_RADIUS + POWER_UP_PADDLE_GAP;
+    const maxY = bottomPaddle.y - POWER_UP_RADIUS - POWER_UP_PADDLE_GAP;
 
     let x = WIDTH / 2;
     let y = (minY + maxY) / 2;
-    for (let attempt = 0; attempt < 12; attempt += 1) {
-      const candidateX = randomBetween(
-        POWER_UP_SAFE_MARGIN_X + POWER_UP_RADIUS,
-        WIDTH - POWER_UP_SAFE_MARGIN_X - POWER_UP_RADIUS
-      );
-      const candidateY = randomBetween(minY, maxY);
+    let foundSafePosition = false;
+    const isSafePosition = (candidateX, candidateY) => {
       const safeFromBall = !ball || Math.hypot(candidateX - ball.x, candidateY - ball.y) > POWER_UP_RADIUS + ball.r + 36;
+      const safeFromOtherPowers = powerUp.pickups.every(pickup => (
+        Math.hypot(candidateX - pickup.x, candidateY - pickup.y) >
+        POWER_UP_RADIUS * 2 + POWER_UP_MIN_SEPARATION
+      ));
+      return safeFromBall && safeFromOtherPowers;
+    };
+
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const candidateX = randomBetween(minX, maxX);
+      const candidateY = randomBetween(minY, maxY);
+      if (!isSafePosition(candidateX, candidateY)) continue;
 
       x = candidateX;
       y = candidateY;
-      if (safeFromBall) break;
+      foundSafePosition = true;
+      break;
     }
 
-    powerUp.spawn.phase = PowerUpPhase.VISIBLE;
-    powerUp.spawn.cooldown = 0;
-    powerUp.spawn.x = x;
-    powerUp.spawn.y = y;
-    powerUp.spawn.side = side;
+    if (!foundSafePosition) {
+      const fallbackPositions = [
+        [0.2, 0.2], [0.5, 0.2], [0.8, 0.2],
+        [0.2, 0.5], [0.5, 0.5], [0.8, 0.5],
+        [0.2, 0.8], [0.5, 0.8], [0.8, 0.8]
+      ];
+      const fallback = fallbackPositions
+        .map(([ratioX, ratioY]) => ({
+          x: minX + (maxX - minX) * ratioX,
+          y: minY + (maxY - minY) * ratioY
+        }))
+        .find(position => isSafePosition(position.x, position.y));
+
+      if (!fallback) return false;
+      x = fallback.x;
+      y = fallback.y;
+    }
+
+    powerUp.pickups.push({ x, y, type: choosePowerUpType() });
+    scheduleNextPowerUp();
+    return true;
   }
 
   function updatePowerUp(deltaSeconds) {
-    if (powerUp.spawn.phase === PowerUpPhase.VISIBLE) return;
+    updateTimedPowerEffects(deltaSeconds);
+
+    if (powerUp.pickups.length >= POWER_UP_MAX_VISIBLE) return;
 
     powerUp.spawn.cooldown -= deltaSeconds;
     if (powerUp.spawn.cooldown <= 0) spawnPowerUp();
+  }
+
+  function updateTimedPowerEffects(deltaSeconds) {
+    ['top', 'bottom'].forEach(side => {
+      powerUp.effects.frozen[side] = Math.max(0, powerUp.effects.frozen[side] - deltaSeconds);
+
+      const previousGrowTime = powerUp.effects.enlarged[side];
+      powerUp.effects.enlarged[side] = Math.max(0, previousGrowTime - deltaSeconds);
+      if (previousGrowTime > 0 && powerUp.effects.enlarged[side] === 0) {
+        setPaddleWidth(side, PADDLE_WIDTH);
+      }
+    });
+  }
+
+  function setPaddleWidth(side, width) {
+    const paddle = side === 'top' ? topPaddle : bottomPaddle;
+    if (!paddle) return;
+
+    const centerX = paddle.x + paddle.w / 2;
+    paddle.w = width;
+    paddle.x = clamp(centerX - width / 2, 0, WIDTH - width);
+  }
+
+  function activateGrowEffect(side) {
+    powerUp.effects.enlarged[side] = GROW_EFFECT_SECONDS;
+    setPaddleWidth(side, PADDLE_WIDTH * GROW_PADDLE_MULTIPLIER);
+  }
+
+  function activateFreezeEffect(owner) {
+    const opponent = owner === 'top' ? 'bottom' : 'top';
+    powerUp.effects.frozen[opponent] = ICE_FREEZE_SECONDS;
+    pointerTargets[opponent] = null;
   }
 
   function segmentTouchesCircle(startX, startY, endX, endY, centerX, centerY, radius) {
@@ -364,26 +438,43 @@ const GameMobile = (() => {
   }
 
   function collectPowerUpIfHit(previousX, previousY) {
-    if (powerUp.spawn.phase !== PowerUpPhase.VISIBLE || !ball) return;
+    if (!ball || !lastPaddleHit) return;
 
-    const touchesPowerUp = segmentTouchesCircle(
-      previousX,
-      previousY,
-      ball.x,
-      ball.y,
-      powerUp.spawn.x,
-      powerUp.spawn.y,
-      powerUp.spawn.side ? POWER_UP_RADIUS + ball.r : 0
-    );
-    if (!touchesPowerUp) return;
+    for (let index = 0; index < powerUp.pickups.length; index += 1) {
+      const pickup = powerUp.pickups[index];
+      const touchesPowerUp = segmentTouchesCircle(
+        previousX,
+        previousY,
+        ball.x,
+        ball.y,
+        pickup.x,
+        pickup.y,
+        POWER_UP_RADIUS + ball.r
+      );
+      if (!touchesPowerUp) continue;
 
-    powerUp.charged[powerUp.spawn.side] = true;
-    scheduleNextPowerUp(PowerUpPhase.CONSUMED);
+      powerUp.pickups.splice(index, 1);
+      if (pickup.type === PowerUpType.FIRE) {
+        powerUp.charged[lastPaddleHit] = true;
+        audio.playEffect('firePickup');
+      } else if (pickup.type === PowerUpType.ICE) {
+        activateFreezeEffect(lastPaddleHit);
+        audio.playEffect('freeze');
+      } else if (pickup.type === PowerUpType.GROW) {
+        activateGrowEffect(lastPaddleHit);
+        audio.playEffect('grow');
+      }
+      break;
+    }
   }
 
   function deactivateBallPower() {
     powerUp.ballEffect.active = false;
     powerUp.ballEffect.owner = null;
+  }
+
+  function isPaddleFrozen(side) {
+    return powerUp.effects.frozen[side] > 0;
   }
 
   function initMatch(resetScore = true) {
@@ -407,6 +498,7 @@ const GameMobile = (() => {
     countdownMode = CountdownMode.START_MATCH;
     cpuTargetX = WIDTH / 2;
     cpuDecisionTimer = 0;
+    lastPaddleHit = null;
     resetPowerUpState();
     updateScoreUI();
   }
@@ -439,6 +531,7 @@ const GameMobile = (() => {
     const nextBall = spawnBall(server);
     const startRadius = BALL_RADIUS * 3.4;
 
+    lastPaddleHit = server;
     openingDropAnimation = null;
     serveAnimation = {
       elapsed: 0,
@@ -562,6 +655,8 @@ const GameMobile = (() => {
       1
     );
 
+    lastPaddleHit = hitter;
+
     if (powerUp.ballEffect.active && powerUp.ballEffect.owner !== hitter) {
       deactivateBallPower();
     }
@@ -570,12 +665,15 @@ const GameMobile = (() => {
     let speed = getRallyBallSpeed();
     const angle = offset * 0.85;
 
-    if (powerUp.charged[hitter]) {
+    const releasedFire = powerUp.charged[hitter];
+    if (releasedFire) {
       powerUp.charged[hitter] = false;
       powerUp.ballEffect.active = true;
       powerUp.ballEffect.owner = hitter;
     }
     if (powerUp.ballEffect.active) speed *= POWER_UP_SPEED_MULTIPLIER;
+
+    audio.playEffect(releasedFire ? 'fireHit' : 'hit');
 
     currentBall.vx = speed * Math.sin(angle);
     currentBall.vy = verticalDirection * Math.abs(speed * Math.cos(angle));
@@ -606,12 +704,11 @@ const GameMobile = (() => {
   }
 
   function updatePaddles(deltaSeconds) {
-    moveHumanPaddle(bottomPaddle, 'bottom', deltaSeconds);
+    if (!isPaddleFrozen('bottom')) moveHumanPaddle(bottomPaddle, 'bottom', deltaSeconds);
 
-    if (mode === 'pvp') {
-      moveHumanPaddle(topPaddle, 'top', deltaSeconds);
-    } else {
-      moveCPUPaddle(deltaSeconds);
+    if (!isPaddleFrozen('top')) {
+      if (mode === 'pvp') moveHumanPaddle(topPaddle, 'top', deltaSeconds);
+      else moveCPUPaddle(deltaSeconds);
     }
   }
 
@@ -697,6 +794,8 @@ const GameMobile = (() => {
       return;
     }
 
+    audio.playEffect('score');
+
     const paddle = scorer === 'top' ? topPaddle : bottomPaddle;
     paddle.x = WIDTH / 2 - paddle.w / 2;
     beginServe(scorer);
@@ -706,24 +805,27 @@ const GameMobile = (() => {
     state = GameState.GAME_OVER;
     stopLoop();
     hideControlGuide();
-    updateControlUI();
 
-    const winnerText = mode === 'cpu'
-      ? (winner === 'bottom' ? 'Você venceu!' : 'A CPU venceu!')
-      : `${winner === 'top' ? 'Jogador 1' : 'Jogador 2'} venceu!`;
-    setWinnerMessage(winnerText);
-    setMessage('Reinicie para jogar novamente.');
+    const playerWon = winner === 'bottom';
+    if (mode === 'cpu') setWinnerMessage(playerWon ? 'playerWon' : 'cpuWon');
+    else setWinnerMessage('numberedPlayerWon', { player: winner === 'top' ? 1 : 2 });
+    audio.playEffect(mode === 'cpu' && !playerWon ? 'lose' : 'win');
+    setMessage('');
+    updateControlUI();
+    elements.gameOverResetButton.focus();
   }
 
   function draw() {
     if (!topPaddle || !bottomPaddle) return;
 
     ctx.drawImage(backgroundCanvas, 0, 0, WIDTH, HEIGHT);
-    drawPowerUp();
+    drawPowerUps();
     if (powerUp.charged.top) drawPaddleFire(topPaddle, 'top');
     if (powerUp.charged.bottom) drawPaddleFire(bottomPaddle, 'bottom');
-    drawPaddle(topPaddle, '#60a5fa');
-    drawPaddle(bottomPaddle, '#f87171');
+    drawPaddle(topPaddle, isPaddleFrozen('top') ? '#b9f3ff' : '#60a5fa');
+    drawPaddle(bottomPaddle, isPaddleFrozen('bottom') ? '#b9f3ff' : '#f87171');
+    if (isPaddleFrozen('top')) drawFrozenPaddleEffect(topPaddle, 'top');
+    if (isPaddleFrozen('bottom')) drawFrozenPaddleEffect(bottomPaddle, 'bottom');
 
     if (ball) {
       if (powerUp.ballEffect.active) drawBallFire(ball);
@@ -737,29 +839,119 @@ const GameMobile = (() => {
     }
   }
 
-  function drawPowerUp() {
-    if (powerUp.spawn.phase !== PowerUpPhase.VISIBLE) return;
+  function drawPowerUps() {
+    powerUp.pickups.forEach(drawPowerUpPickup);
+  }
 
-    const { x, y } = powerUp.spawn;
+  function drawPowerUpPickup(pickup) {
+    const { x, y, type } = pickup;
     const pulse = 1 + Math.sin(performance.now() * 0.008) * 0.07;
-    const size = POWER_UP_RADIUS * 2.25 * pulse;
+    const size = POWER_UP_RADIUS * 2.3 * pulse;
+    const colors = {
+      [PowerUpType.FIRE]: { glow: '#ff6a00', border: '#ffb830', fill: 'rgba(90, 25, 8, 0.88)' },
+      [PowerUpType.ICE]: { glow: '#52d9ff', border: '#b9f3ff', fill: 'rgba(11, 78, 110, 0.9)' },
+      [PowerUpType.GROW]: { glow: '#54e887', border: '#b7ffc8', fill: 'rgba(18, 91, 45, 0.9)' }
+    };
+    const color = colors[type];
 
     ctx.save();
     ctx.globalAlpha = 0.95;
-    ctx.shadowColor = '#ff6a00';
+    ctx.shadowColor = color.glow;
     ctx.shadowBlur = 12;
-    ctx.strokeStyle = 'rgba(255, 184, 48, 0.85)';
+    ctx.fillStyle = color.fill;
+    ctx.beginPath();
+    ctx.arc(x, y, POWER_UP_RADIUS * pulse, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = color.border;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.arc(x, y, POWER_UP_RADIUS * pulse, 0, Math.PI * 2);
     ctx.stroke();
 
-    if (powerUpImage.complete && powerUpImage.naturalWidth > 0) {
-      ctx.drawImage(powerUpImage, x - size / 2, y - size / 2, size, size);
-    } else {
+    const pickupImage = type === PowerUpType.FIRE
+      ? powerUpImage
+      : type === PowerUpType.ICE
+        ? icePowerUpImage
+        : growPowerUpImage;
+
+    if (pickupImage.complete && pickupImage.naturalWidth > 0) {
+      ctx.drawImage(pickupImage, x - size / 2, y - size / 2, size, size);
+    } else if (type === PowerUpType.FIRE) {
       ctx.fillStyle = '#ff5a36';
       ctx.beginPath();
       ctx.arc(x, y, POWER_UP_RADIUS * 0.72, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (type === PowerUpType.ICE) drawIceIcon(x, y, pulse);
+    else drawGrowIcon(x, y, pulse);
+    ctx.restore();
+  }
+
+  function drawIceIcon(x, y, scale) {
+    const radius = POWER_UP_RADIUS * 0.6 * scale;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.strokeStyle = '#e8fbff';
+    ctx.lineWidth = 2.4;
+    ctx.lineCap = 'round';
+
+    for (let index = 0; index < 3; index += 1) {
+      ctx.rotate(Math.PI / 3);
+      ctx.beginPath();
+      ctx.moveTo(-radius, 0);
+      ctx.lineTo(radius, 0);
+      ctx.moveTo(radius * 0.62, 0);
+      ctx.lineTo(radius * 0.42, -radius * 0.2);
+      ctx.moveTo(radius * 0.62, 0);
+      ctx.lineTo(radius * 0.42, radius * 0.2);
+      ctx.moveTo(-radius * 0.62, 0);
+      ctx.lineTo(-radius * 0.42, -radius * 0.2);
+      ctx.moveTo(-radius * 0.62, 0);
+      ctx.lineTo(-radius * 0.42, radius * 0.2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawGrowIcon(x, y, scale) {
+    const radius = POWER_UP_RADIUS * 0.58 * scale;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.strokeStyle = '#effff2';
+    ctx.fillStyle = '#effff2';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.fillRect(-2.5, -radius * 0.55, 5, radius * 1.1);
+    ctx.beginPath();
+    ctx.moveTo(0, -radius);
+    ctx.lineTo(-5, -radius + 6);
+    ctx.moveTo(0, -radius);
+    ctx.lineTo(5, -radius + 6);
+    ctx.moveTo(0, radius);
+    ctx.lineTo(-5, radius - 6);
+    ctx.moveTo(0, radius);
+    ctx.lineTo(5, radius - 6);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawFrozenPaddleEffect(paddle, side) {
+    const outwardDirection = side === 'top' ? 1 : -1;
+    ctx.save();
+    ctx.shadowColor = '#57dcff';
+    ctx.shadowBlur = 13;
+    ctx.strokeStyle = 'rgba(191, 245, 255, 0.95)';
+    ctx.fillStyle = 'rgba(111, 224, 255, 0.42)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(paddle.x - 3, paddle.y - 3, paddle.w + 6, paddle.h + 6);
+
+    for (let index = 0; index < 5; index += 1) {
+      const shardX = paddle.x + (index + 0.5) * paddle.w / 5;
+      const shardY = side === 'top' ? paddle.y + paddle.h + 2 : paddle.y - 2;
+      ctx.beginPath();
+      ctx.moveTo(shardX - 4, shardY);
+      ctx.lineTo(shardX, shardY + outwardDirection * 7);
+      ctx.lineTo(shardX + 4, shardY);
+      ctx.closePath();
       ctx.fill();
     }
     ctx.restore();
@@ -901,7 +1093,7 @@ const GameMobile = (() => {
     if (isMatchActive()) frameId = requestAnimationFrame(loop);
   }
 
-  function pauseGame(message = 'Pausado') {
+  function pauseGame(messageKey = 'paused') {
     if (!isMatchActive()) return;
 
     resumeState = state;
@@ -909,7 +1101,7 @@ const GameMobile = (() => {
     stopLoop();
     clearInput();
     showPauseMenu();
-    setMessage(message);
+    setMessage(messageKey);
     updateControlUI();
   }
 
@@ -921,7 +1113,7 @@ const GameMobile = (() => {
       : CountdownMode.RESUME_MATCH;
     hidePauseMenu();
     beginCountdown(3, resumeCountdownMode);
-    setMessage('Preparar...');
+    setMessage('prepare');
     startLoop();
   }
 
@@ -969,6 +1161,7 @@ const GameMobile = (() => {
       screen.setAttribute('aria-hidden', String(!isActive));
     });
     elements.menuLogo.classList.toggle('hidden', validScreen !== 'mainMenu');
+    elements.startMenu.classList.toggle('settings-open', validScreen === 'settingsMenu');
   }
 
   function openMenu(screenName = 'mainMenu') {
@@ -989,7 +1182,7 @@ const GameMobile = (() => {
     elements.countdown.textContent = '';
     setWinnerMessage('');
     setMenuScreen(screenName);
-    setMessage('Escolha o modo de jogo');
+    setMessage('chooseMode');
     updateModeUI();
     updateControlUI();
     draw();
@@ -1022,7 +1215,7 @@ const GameMobile = (() => {
 
     beginCountdown(3);
     showControlGuide();
-    setMessage('Preparar...');
+    setMessage('prepare');
     draw();
     startLoop();
   }
@@ -1033,7 +1226,7 @@ const GameMobile = (() => {
     elements.readyOverlay.classList.add('hidden');
     beginCountdown(3);
     showControlGuide();
-    setMessage('Preparar...');
+    setMessage('prepare');
     draw();
     startLoop();
   }
@@ -1048,21 +1241,24 @@ const GameMobile = (() => {
 
   function updateModeUI() {
     if (mode === 'cpu') {
-      elements.labelTop.textContent = 'CPU (TOPO)';
-      elements.labelBottom.textContent = 'VOCÊ (FUNDO)';
-      elements.hint.textContent = 'Arraste para mover a raquete';
-      elements.guideBottomLabel.textContent = 'VOCÊ';
+      elements.labelTop.textContent = t('cpu');
+      elements.labelBottom.textContent = t('you');
+      elements.hint.textContent = t('mobileHintCpu');
+      elements.guideBottomLabel.textContent = t('you');
     } else {
-      elements.labelTop.textContent = 'JOGADOR 1 (TOPO)';
-      elements.labelBottom.textContent = 'JOGADOR 2 (FUNDO)';
-      elements.hint.textContent = 'Cada jogador arrasta na sua metade';
-      elements.guideBottomLabel.textContent = 'JOGADOR 2';
+      elements.labelTop.textContent = t('player1');
+      elements.labelBottom.textContent = t('player2');
+      elements.hint.textContent = t('mobileHintPvp');
+      elements.guideBottomLabel.textContent = t('player2');
     }
   }
 
   function updateControlUI() {
+    const isGameOver = state === GameState.GAME_OVER;
+    elements.pauseButton.classList.toggle('hidden', isGameOver);
+    elements.gameOverMenuButton.classList.toggle('hidden', !isGameOver);
     elements.pauseButton.disabled = state !== GameState.PLAYING && state !== GameState.PAUSED;
-    elements.pauseButton.textContent = state === GameState.PAUSED ? 'Continuar' : 'Pausar';
+    elements.pauseButton.textContent = t(state === GameState.PAUSED ? 'continue' : 'pause');
   }
 
   function showControlGuide() {
@@ -1094,6 +1290,8 @@ const GameMobile = (() => {
       button.classList.toggle('is-selected', isSelected);
       button.setAttribute('aria-pressed', String(isSelected));
     });
+    const points = t(winningScore === 1 ? 'point' : 'points');
+    elements.winningScoreDisplay.textContent = t('matchPoints', { count: winningScore, points });
   }
 
   function setWinningScore(value) {
@@ -1109,13 +1307,34 @@ const GameMobile = (() => {
     updateWinningScoreUI();
   }
 
-  function setMessage(text) {
-    elements.message.textContent = text;
+  function setMessage(key, variables = {}) {
+    currentMessage = { key, variables };
+    elements.message.textContent = key ? t(key, variables) : '';
   }
 
-  function setWinnerMessage(text) {
-    elements.winnerMessage.textContent = text;
-    elements.winnerMessage.classList.toggle('hidden', !text);
+  function setWinnerMessage(key, variables = {}) {
+    currentWinnerMessage = { key, variables };
+    elements.winnerMessage.textContent = key ? t(key, variables) : '';
+    elements.gameOverPanel.classList.toggle('hidden', !key);
+  }
+
+  function syncPreferenceControls() {
+    elements.musicToggle.checked = audio.isMusicEnabled();
+    elements.soundToggle.checked = audio.isSoundEnabled();
+    elements.languageSelect.value = services.getLanguage();
+  }
+
+  function refreshLocalizedUI() {
+    syncPreferenceControls();
+    updateModeUI();
+    updateControlUI();
+    updateWinningScoreUI();
+    elements.message.textContent = currentMessage.key
+      ? t(currentMessage.key, currentMessage.variables)
+      : '';
+    elements.winnerMessage.textContent = currentWinnerMessage.key
+      ? t(currentWinnerMessage.key, currentWinnerMessage.variables)
+      : '';
   }
 
   function clamp(value, min, max) {
@@ -1133,6 +1352,8 @@ const GameMobile = (() => {
   elements.resetButton.addEventListener('click', () => setPauseScreen('restartConfirm'));
   elements.resetConfirmButton.addEventListener('click', resetMatch);
   elements.resetCancelButton.addEventListener('click', () => setPauseScreen('actions'));
+  elements.gameOverResetButton.addEventListener('click', resetMatch);
+  elements.gameOverMenuButton.addEventListener('click', () => openMenu());
   menuBackButtons.forEach(button => {
     button.addEventListener('click', () => setMenuScreen(button.dataset.menuBack || 'mainMenu'));
   });
@@ -1146,6 +1367,16 @@ const GameMobile = (() => {
   winningScoreButtons.forEach(button => {
     button.addEventListener('click', () => setWinningScore(button.dataset.winningScore));
   });
+  elements.musicToggle.addEventListener('change', () => {
+    audio.setMusicEnabled(elements.musicToggle.checked);
+  });
+  elements.soundToggle.addEventListener('change', () => {
+    audio.setSoundEnabled(elements.soundToggle.checked);
+  });
+  elements.languageSelect.addEventListener('change', () => {
+    services.setLanguage(elements.languageSelect.value);
+  });
+  window.addEventListener('pingponglanguagechange', refreshLocalizedUI);
 
   canvas.addEventListener('pointerdown', handlePointerDown);
   canvas.addEventListener('pointermove', handlePointerMove);
@@ -1157,9 +1388,11 @@ const GameMobile = (() => {
   window.addEventListener('orientationchange', scheduleResize, { passive: true });
   window.visualViewport?.addEventListener('resize', scheduleResize, { passive: true });
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden && isMatchActive()) pauseGame('Jogo pausado ao sair da aba');
+    if (document.hidden && isMatchActive()) pauseGame('tabPaused');
   });
 
+  services.applyTranslations();
+  syncPreferenceControls();
   configureCanvasResolution();
   initMatch();
   updateModeUI();

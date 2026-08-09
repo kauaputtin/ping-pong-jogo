@@ -1,6 +1,10 @@
 const Game = (() => {
   'use strict';
 
+  const services = window.PingPongServices;
+  const audio = services.audio;
+  const t = services.t;
+
   const canvas = document.getElementById('game-canvas');
   const ctx = canvas.getContext('2d', { alpha: false });
   const backgroundCanvas = document.createElement('canvas');
@@ -30,16 +34,16 @@ const Game = (() => {
   const MAX_DELTA_SECONDS = 1 / 30;
   const RALLY_SPEEDUP_EVERY_HITS = 4;
   const RALLY_SPEEDUP_STEP = 0.10;
-  const MAX_RALLY_SPEED_MULTIPLIER = 2;
+  const MAX_RALLY_SPEED_MULTIPLIER = 1.8;
   const POWER_UP_MIN_SPAWN_SECONDS = 10;
-  const POWER_UP_MAX_SPAWN_SECONDS = 20;
-  const POWER_UP_RADIUS = 22;
+  const POWER_UP_MAX_SPAWN_SECONDS = 15;
+  const POWER_UP_RADIUS = 25;
   const POWER_UP_SPEED_MULTIPLIER = 2;
-  const POWER_UP_SAFE_MARGIN_Y = 42;
-  const POWER_UP_CENTER_GAP = 55;
+  const POWER_UP_MAX_VISIBLE = 2;
   const POWER_UP_PADDLE_GAP = 50;
-  const ICE_FREEZE_SECONDS = 2;
-  const GROW_EFFECT_SECONDS = 5;
+  const POWER_UP_MIN_SEPARATION = 24;
+  const ICE_FREEZE_SECONDS = 1;
+  const GROW_EFFECT_SECONDS = 8;
   const GROW_PADDLE_MULTIPLIER = 2;
 
   const GameState = Object.freeze({
@@ -85,6 +89,7 @@ const Game = (() => {
     labelRight: document.getElementById('label-right'),
     scoreLeft: document.getElementById('score-left'),
     scoreRight: document.getElementById('score-right'),
+    winningScoreDisplay: document.getElementById('winning-score-display'),
     hint: document.getElementById('hint'),
     message: document.getElementById('msg'),
     playMenu: document.getElementById('play-menu'),
@@ -98,7 +103,10 @@ const Game = (() => {
     resetConfirmButton: document.getElementById('btn-reset-confirm'),
     resetCancelButton: document.getElementById('btn-reset-cancel'),
     gameOverResetButton: document.getElementById('btn-game-over-reset'),
-    gameOverMenuButton: document.getElementById('btn-game-over-menu')
+    gameOverMenuButton: document.getElementById('btn-game-over-menu'),
+    musicToggle: document.getElementById('music-toggle'),
+    soundToggle: document.getElementById('sound-toggle'),
+    languageSelect: document.getElementById('language-select')
   };
 
   const menuScreens = Array.from(document.querySelectorAll('[data-menu-screen]'));
@@ -130,7 +138,10 @@ const Game = (() => {
   let cpuTargetY = HEIGHT / 2;
   let cpuDecisionTimer = 0;
   let rallyHits = 0;
+  let lastPaddleHit = null;
   let powerUp = createPowerUpState();
+  let currentMessage = { key: '', variables: {} };
+  let currentWinnerMessage = { key: '', variables: {} };
 
   const pressedKeys = new Set();
 
@@ -177,7 +188,7 @@ const Game = (() => {
     const viewportHeight = window.innerHeight;
     const viewportWidth = window.innerWidth;
     const headerHeight = document.querySelector('h1')?.getBoundingClientRect().height || 0;
-    const scoreboardHeight = document.getElementById('scoreboard')?.getBoundingClientRect().height || 0;
+    const scoreboardHeight = document.getElementById('score-area')?.getBoundingClientRect().height || 0;
     const controlsHeight = elements.controls?.getBoundingClientRect().height || 0;
     const hintHeight = elements.hint?.getBoundingClientRect().height || 0;
     const messageHeight = elements.message?.getBoundingClientRect().height || 0;
@@ -227,14 +238,13 @@ const Game = (() => {
   function createPowerUpState() {
     return {
       spawn: { cooldown: getRandomPowerUpDelay() },
-      pickups: { left: null, right: null },
+      pickups: [],
       charged: { left: false, right: false },
       ballEffect: { active: false, owner: null },
       effects: {
         frozen: { left: 0, right: 0 },
         enlarged: { left: 0, right: 0 }
-      },
-      sideStreak: { side: null, count: 0 }
+      }
     };
   }
 
@@ -244,8 +254,7 @@ const Game = (() => {
 
   function resetPowerUpRound() {
     powerUp.spawn.cooldown = getRandomPowerUpDelay();
-    powerUp.pickups.left = null;
-    powerUp.pickups.right = null;
+    powerUp.pickups = [];
     powerUp.charged.left = false;
     powerUp.charged.right = false;
     powerUp.effects.frozen.left = 0;
@@ -261,68 +270,64 @@ const Game = (() => {
     powerUp.spawn.cooldown = getRandomPowerUpDelay();
   }
 
-  function getAvailablePowerUpSides() {
-    return ['left', 'right'].filter(side => !powerUp.pickups[side]);
-  }
-
-  function choosePowerUpSide(availableSides) {
-    if (availableSides.length === 0) return null;
-
-    const streak = powerUp.sideStreak;
-    let side;
-
-    if (availableSides.length === 1) {
-      [side] = availableSides;
-    } else {
-      side = streak.side && streak.count >= 2
-        ? (streak.side === 'left' ? 'right' : 'left')
-        : availableSides[Math.floor(Math.random() * availableSides.length)];
-    }
-
-    if (side === streak.side) streak.count += 1;
-    else {
-      streak.side = side;
-      streak.count = 1;
-    }
-    return side;
-  }
-
   function choosePowerUpType() {
     return POWER_UP_TYPES[Math.floor(Math.random() * POWER_UP_TYPES.length)];
   }
 
   function spawnPowerUp() {
-    const availableSides = getAvailablePowerUpSides();
-    const side = choosePowerUpSide(availableSides);
-    if (!side) return false;
+    if (powerUp.pickups.length >= POWER_UP_MAX_VISIBLE) return false;
 
-    const minX = side === 'left'
-      ? leftPaddle.x + leftPaddle.w + POWER_UP_RADIUS + POWER_UP_PADDLE_GAP
-      : WIDTH / 2 + POWER_UP_CENTER_GAP + POWER_UP_RADIUS;
-    const maxX = side === 'left'
-      ? WIDTH / 2 - POWER_UP_CENTER_GAP - POWER_UP_RADIUS
-      : rightPaddle.x - POWER_UP_RADIUS - POWER_UP_PADDLE_GAP;
-    const minY = POWER_UP_SAFE_MARGIN_Y + POWER_UP_RADIUS;
-    const maxY = HEIGHT - POWER_UP_SAFE_MARGIN_Y - POWER_UP_RADIUS;
+    const minX = leftPaddle.x + leftPaddle.w + POWER_UP_RADIUS + POWER_UP_PADDLE_GAP;
+    const maxX = rightPaddle.x - POWER_UP_RADIUS - POWER_UP_PADDLE_GAP;
+    const minY = POWER_UP_RADIUS;
+    const maxY = HEIGHT - POWER_UP_RADIUS;
 
     let x = (minX + maxX) / 2;
     let y = HEIGHT / 2;
-    for (let attempt = 0; attempt < 12; attempt += 1) {
+    let foundSafePosition = false;
+    const isSafePosition = (candidateX, candidateY) => {
+      const safeFromBall = !ball || Math.hypot(candidateX - ball.x, candidateY - ball.y) > POWER_UP_RADIUS + ball.r + 54;
+      const safeFromOtherPowers = powerUp.pickups.every(pickup => (
+        Math.hypot(candidateX - pickup.x, candidateY - pickup.y) >
+        POWER_UP_RADIUS * 2 + POWER_UP_MIN_SEPARATION
+      ));
+      return safeFromBall && safeFromOtherPowers;
+    };
+
+    for (let attempt = 0; attempt < 20; attempt += 1) {
       const candidateX = randomBetween(minX, maxX);
       const candidateY = randomBetween(minY, maxY);
-      const safeFromBall = !ball || Math.hypot(candidateX - ball.x, candidateY - ball.y) > POWER_UP_RADIUS + ball.r + 54;
+      if (!isSafePosition(candidateX, candidateY)) continue;
 
       x = candidateX;
       y = candidateY;
-      if (safeFromBall) break;
+      foundSafePosition = true;
+      break;
     }
 
-    powerUp.pickups[side] = {
+    if (!foundSafePosition) {
+      const fallbackPositions = [
+        [0.2, 0.2], [0.5, 0.2], [0.8, 0.2],
+        [0.2, 0.5], [0.5, 0.5], [0.8, 0.5],
+        [0.2, 0.8], [0.5, 0.8], [0.8, 0.8]
+      ];
+      const fallback = fallbackPositions
+        .map(([ratioX, ratioY]) => ({
+          x: minX + (maxX - minX) * ratioX,
+          y: minY + (maxY - minY) * ratioY
+        }))
+        .find(position => isSafePosition(position.x, position.y));
+
+      if (!fallback) return false;
+      x = fallback.x;
+      y = fallback.y;
+    }
+
+    powerUp.pickups.push({
       x,
       y,
-      side,
       type: choosePowerUpType()
-    };
+    });
     scheduleNextPowerUp();
     return true;
   }
@@ -330,7 +335,7 @@ const Game = (() => {
   function updatePowerUp(deltaSeconds) {
     updateTimedPowerEffects(deltaSeconds);
 
-    if (powerUp.pickups.left && powerUp.pickups.right) return;
+    if (powerUp.pickups.length >= POWER_UP_MAX_VISIBLE) return;
 
     powerUp.spawn.cooldown -= deltaSeconds;
     if (powerUp.spawn.cooldown <= 0) spawnPowerUp();
@@ -395,11 +400,10 @@ const Game = (() => {
   }
 
   function collectPowerUpIfHit(previousX, previousY) {
-    if (!ball) return;
+    if (!ball || !lastPaddleHit) return;
 
-    for (const side of ['left', 'right']) {
-      const pickup = powerUp.pickups[side];
-      if (!pickup) continue;
+    for (let index = 0; index < powerUp.pickups.length; index += 1) {
+      const pickup = powerUp.pickups[index];
 
       const touchesPowerUp = segmentTouchesCircle(
         previousX,
@@ -412,10 +416,17 @@ const Game = (() => {
       );
       if (!touchesPowerUp) continue;
 
-      powerUp.pickups[side] = null;
-      if (pickup.type === PowerUpType.FIRE) powerUp.charged[side] = true;
-      else if (pickup.type === PowerUpType.ICE) activateFreezeEffect(side);
-      else if (pickup.type === PowerUpType.GROW) activateGrowEffect(side);
+      powerUp.pickups.splice(index, 1);
+      if (pickup.type === PowerUpType.FIRE) {
+        powerUp.charged[lastPaddleHit] = true;
+        audio.playEffect('firePickup');
+      } else if (pickup.type === PowerUpType.ICE) {
+        activateFreezeEffect(lastPaddleHit);
+        audio.playEffect('freeze');
+      } else if (pickup.type === PowerUpType.GROW) {
+        activateGrowEffect(lastPaddleHit);
+        audio.playEffect('grow');
+      }
       break;
     }
   }
@@ -493,6 +504,7 @@ const Game = (() => {
     countdownMode = CountdownMode.START_MATCH;
     cpuTargetY = HEIGHT / 2;
     cpuDecisionTimer = 0;
+    lastPaddleHit = null;
     resetPowerUpState();
     updateScoreUI();
   }
@@ -525,6 +537,7 @@ const Game = (() => {
     const nextBall = spawnBall(server);
     const startRadius = BALL_RADIUS * 3.4;
 
+    lastPaddleHit = server;
     openingDropAnimation = null;
     serveAnimation = {
       elapsed: 0,
@@ -648,6 +661,8 @@ const Game = (() => {
       1
     );
 
+    lastPaddleHit = hitter;
+
     if (powerUp.ballEffect.active && powerUp.ballEffect.owner !== hitter) {
       deactivateBallPower();
     }
@@ -656,12 +671,15 @@ const Game = (() => {
     let speed = getRallyBallSpeed();
     const angle = offset * 0.85;
 
-    if (powerUp.charged[hitter]) {
+    const releasedFire = powerUp.charged[hitter];
+    if (releasedFire) {
       powerUp.charged[hitter] = false;
       powerUp.ballEffect.active = true;
       powerUp.ballEffect.owner = hitter;
     }
     if (powerUp.ballEffect.active) speed *= POWER_UP_SPEED_MULTIPLIER;
+
+    audio.playEffect(releasedFire ? 'fireHit' : 'hit');
 
     currentBall.vx = horizontalDirection * Math.abs(speed * Math.cos(angle));
     currentBall.vy = speed * Math.sin(angle);
@@ -792,6 +810,8 @@ const Game = (() => {
       return;
     }
 
+    audio.playEffect('score');
+
     const paddle = scorer === 'left' ? leftPaddle : rightPaddle;
     paddle.y = HEIGHT / 2 - paddle.h / 2;
     beginServe(scorer);
@@ -802,10 +822,10 @@ const Game = (() => {
     stopLoop();
     clearInput();
 
-    const winnerText = mode === 'cpu'
-      ? (winner === 'left' ? 'Você venceu!' : 'A CPU venceu!')
-      : `${winner === 'left' ? 'Jogador 1' : 'Jogador 2'} venceu!`;
-    setWinnerMessage(winnerText);
+    const playerWon = winner === 'left';
+    if (mode === 'cpu') setWinnerMessage(playerWon ? 'playerWon' : 'cpuWon');
+    else setWinnerMessage('numberedPlayerWon', { player: winner === 'left' ? 1 : 2 });
+    audio.playEffect(mode === 'cpu' && !playerWon ? 'lose' : 'win');
     setMessage('');
     updateControlUI();
     elements.gameOverResetButton.focus();
@@ -836,16 +856,13 @@ const Game = (() => {
   }
 
   function drawPowerUps() {
-    ['left', 'right'].forEach(side => {
-      const pickup = powerUp.pickups[side];
-      if (pickup) drawPowerUpPickup(pickup);
-    });
+    powerUp.pickups.forEach(drawPowerUpPickup);
   }
 
   function drawPowerUpPickup(pickup) {
     const { x, y, type } = pickup;
     const pulse = 1 + Math.sin(performance.now() * 0.008) * 0.07;
-    const size = POWER_UP_RADIUS * 2.25 * pulse;
+    const size = POWER_UP_RADIUS * 2.3 * pulse;
     const colors = {
       [PowerUpType.FIRE]: { glow: '#ff6a00', border: '#ffb830', fill: 'rgba(90, 25, 8, 0.88)' },
       [PowerUpType.ICE]: { glow: '#52d9ff', border: '#b9f3ff', fill: 'rgba(11, 78, 110, 0.9)' },
@@ -1092,7 +1109,7 @@ const Game = (() => {
     if (isMatchActive()) frameId = requestAnimationFrame(loop);
   }
 
-  function pauseGame(message = 'Pausado') {
+  function pauseGame(messageKey = 'paused') {
     if (!isMatchActive()) return;
 
     resumeState = state;
@@ -1100,7 +1117,7 @@ const Game = (() => {
     stopLoop();
     clearInput();
     showPauseMenu();
-    setMessage(message);
+    setMessage(messageKey);
     updateControlUI();
   }
 
@@ -1112,7 +1129,7 @@ const Game = (() => {
       : CountdownMode.RESUME_MATCH;
     hidePauseMenu();
     beginCountdown(3, resumeCountdownMode);
-    setMessage('Preparar...');
+    setMessage('prepare');
     startLoop();
   }
 
@@ -1160,6 +1177,7 @@ const Game = (() => {
       screen.setAttribute('aria-hidden', String(!isActive));
     });
     elements.menuLogo.classList.toggle('hidden', validScreen !== 'mainMenu');
+    elements.startMenu.classList.toggle('settings-open', validScreen === 'settingsMenu');
   }
 
   function openMenu(screenName = 'mainMenu') {
@@ -1179,7 +1197,7 @@ const Game = (() => {
     elements.countdown.textContent = '';
     setWinnerMessage('');
     setMenuScreen(screenName);
-    setMessage('Escolha o modo de jogo');
+    setMessage('chooseMode');
     updateModeUI();
     updateControlUI();
     draw();
@@ -1210,7 +1228,7 @@ const Game = (() => {
     }
 
     beginCountdown(3);
-    setMessage('Preparar...');
+    setMessage('prepare');
     draw();
     startLoop();
   }
@@ -1220,7 +1238,7 @@ const Game = (() => {
 
     elements.readyOverlay.classList.add('hidden');
     beginCountdown(3);
-    setMessage('Preparar...');
+    setMessage('prepare');
     draw();
     startLoop();
   }
@@ -1235,16 +1253,14 @@ const Game = (() => {
 
   function updateModeUI() {
     if (mode === 'cpu') {
-      elements.labelLeft.textContent = 'JOGADOR';
-      elements.labelRight.textContent = 'CPU';
+      elements.labelLeft.textContent = t('player');
+      elements.labelRight.textContent = t('cpu');
     } else {
-      elements.labelLeft.textContent = 'JOGADOR 1';
-      elements.labelRight.textContent = 'JOGADOR 2';
+      elements.labelLeft.textContent = t('player1');
+      elements.labelRight.textContent = t('player2');
     }
 
-    elements.hint.textContent = mode === 'cpu'
-      ? 'W / S ou Mouse - mover raquete • Esc - pausar'
-      : 'P1: W / S ou Mouse - P2: setas • Esc - pausar';
+    elements.hint.textContent = t(mode === 'cpu' ? 'desktopHintCpu' : 'desktopHintPvp');
   }
 
   function updateControlUI() {
@@ -1252,7 +1268,7 @@ const Game = (() => {
     elements.pauseButton.classList.toggle('hidden', isGameOver);
     elements.gameOverMenuButton.classList.toggle('hidden', !isGameOver);
     elements.pauseButton.disabled = state !== GameState.PLAYING && state !== GameState.PAUSED;
-    elements.pauseButton.textContent = state === GameState.PAUSED ? 'Continuar' : 'Pausar';
+    elements.pauseButton.textContent = t(state === GameState.PAUSED ? 'continue' : 'pause');
   }
 
   function updateScoreUI() {
@@ -1275,6 +1291,8 @@ const Game = (() => {
       button.classList.toggle('is-selected', isSelected);
       button.setAttribute('aria-pressed', String(isSelected));
     });
+    const points = t(winningScore === 1 ? 'point' : 'points');
+    elements.winningScoreDisplay.textContent = t('matchPoints', { count: winningScore, points });
   }
 
   function setWinningScore(value) {
@@ -1290,13 +1308,34 @@ const Game = (() => {
     updateWinningScoreUI();
   }
 
-  function setMessage(text) {
-    elements.message.textContent = text;
+  function setMessage(key, variables = {}) {
+    currentMessage = { key, variables };
+    elements.message.textContent = key ? t(key, variables) : '';
   }
 
-  function setWinnerMessage(text) {
-    elements.winnerMessage.textContent = text;
-    elements.gameOverPanel.classList.toggle('hidden', !text);
+  function setWinnerMessage(key, variables = {}) {
+    currentWinnerMessage = { key, variables };
+    elements.winnerMessage.textContent = key ? t(key, variables) : '';
+    elements.gameOverPanel.classList.toggle('hidden', !key);
+  }
+
+  function syncPreferenceControls() {
+    elements.musicToggle.checked = audio.isMusicEnabled();
+    elements.soundToggle.checked = audio.isSoundEnabled();
+    elements.languageSelect.value = services.getLanguage();
+  }
+
+  function refreshLocalizedUI() {
+    syncPreferenceControls();
+    updateModeUI();
+    updateControlUI();
+    updateWinningScoreUI();
+    elements.message.textContent = currentMessage.key
+      ? t(currentMessage.key, currentMessage.variables)
+      : '';
+    elements.winnerMessage.textContent = currentWinnerMessage.key
+      ? t(currentWinnerMessage.key, currentWinnerMessage.variables)
+      : '';
   }
 
   function clamp(value, min, max) {
@@ -1329,6 +1368,16 @@ const Game = (() => {
   winningScoreButtons.forEach(button => {
     button.addEventListener('click', () => setWinningScore(button.dataset.winningScore));
   });
+  elements.musicToggle.addEventListener('change', () => {
+    audio.setMusicEnabled(elements.musicToggle.checked);
+  });
+  elements.soundToggle.addEventListener('change', () => {
+    audio.setSoundEnabled(elements.soundToggle.checked);
+  });
+  elements.languageSelect.addEventListener('change', () => {
+    services.setLanguage(elements.languageSelect.value);
+  });
+  window.addEventListener('pingponglanguagechange', refreshLocalizedUI);
 
   document.addEventListener('keydown', handleKeyDown);
   document.addEventListener('keyup', handleKeyUp);
@@ -1338,9 +1387,11 @@ const Game = (() => {
   window.addEventListener('blur', clearInput);
   window.addEventListener('resize', scheduleResize, { passive: true });
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden && isMatchActive()) pauseGame('Jogo pausado ao sair da aba');
+    if (document.hidden && isMatchActive()) pauseGame('tabPaused');
   });
 
+  services.applyTranslations();
+  syncPreferenceControls();
   configureCanvasResolution();
   initMatch();
   updateModeUI();

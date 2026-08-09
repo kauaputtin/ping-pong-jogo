@@ -22,13 +22,19 @@ Ao continuar uma partida pausada, uma nova contagem de três segundos é exibida
 
 ## Configurações
 
-A tela de configurações, acessível somente pelo menu principal, permite escolher a pontuação necessária para vencer. A dificuldade da CPU é selecionada ao entrar no modo de um jogador.
+A tela de configurações, acessível pelo menu principal, permite escolher a pontuação necessária para vencer, ativar ou desativar separadamente a música e os efeitos sonoros e mudar o idioma entre português, inglês e espanhol. Todas as preferências ficam salvas no navegador. A música de fundo toca em volume baixo e em loop contínuo após a primeira interação permitida pelo navegador.
+
+A dificuldade da CPU é selecionada ao entrar no modo de um jogador.
+
+## Áudio
+
+As versões desktop e mobile usam os mesmos efeitos para rebatidas, pontos, vitória, derrota e power-ups. Os arquivos ficam na pasta `sounds/` e o controle **Sons do jogo** não interfere na música de fundo.
 
 ## Power-up
 
 Nas duas versões, a bola pode coletar o power-up de fogo. O jogador dono daquele lado carrega uma tacada especial para sua próxima rebatida, que transfere o fogo para a bola e dobra sua velocidade até o adversário devolver ou a jogada terminar.
 
-No desktop também existem os poderes de gelo, que congela a raquete adversária por dois segundos, e de crescimento, que dobra o tamanho da própria raquete por cinco segundos. Pode haver um poder aguardando em cada lado do campo; a contagem para o próximo começa assim que um item surge e pausa enquanto os dois lados estiverem ocupados. Todos os itens e efeitos da rodada são removidos quando alguém marca um ponto.
+Nas duas versões também existem os poderes de gelo, que congela a raquete adversária por um segundo, e de crescimento, que dobra o tamanho da própria raquete por oito segundos. Até dois poderes podem surgir em posições aleatórias dentro das margens seguras da arena. A contagem para o próximo começa assim que um item aparece e pausa enquanto dois estiverem visíveis. Ao ser atingido pela bola, o poder pertence à última raquete que rebateu; todos os itens e efeitos da rodada são removidos quando alguém marca um ponto.
 
 ## Controles
 
@@ -58,8 +64,12 @@ ping-pong-jogo/
 |   |-- gelo.png
 |   `-- logo.png
 |-- js/
+|   |-- game-services.js
 |   |-- game-desktop.js
 |   `-- game-mobile.js
+|-- sounds/
+|   |-- music.mp3
+|   `-- efeitos de jogo (.mp3 e .wav)
 `-- README.md
 ```
 

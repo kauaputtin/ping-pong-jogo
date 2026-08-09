@@ -36,6 +36,13 @@ h1 {
   text-transform: uppercase;
 }
 
+#score-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
 #scoreboard {
   display: flex;
   min-height: 42px;
@@ -60,6 +67,13 @@ h1 {
 
 .score-separator {
   color: #444;
+}
+
+#winning-score-display {
+  color: #777;
+  font-size: 0.7rem;
+  line-height: 1.2;
+  text-align: center;
 }
 
 #game-container {
@@ -232,6 +246,10 @@ h1 {
   pointer-events: auto;
 }
 
+#start-menu.settings-open {
+  height: min(460px, 100%);
+}
+
 .menu-logo {
   display: block;
   width: 73px;
@@ -359,6 +377,79 @@ h1 {
   margin-bottom: 8px;
   color: #aaa;
   font-size: 0.78rem;
+}
+
+.settings-menu-screen.is-active {
+  justify-content: flex-start;
+  padding: 0 2px 2px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #555 transparent;
+}
+
+.audio-settings {
+  margin-top: 14px;
+}
+
+.setting-toggle {
+  display: flex;
+  min-height: 36px;
+  padding: 7px 10px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #343434;
+  background: #111;
+  color: #ddd;
+  font-size: 0.84rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.setting-toggle:first-of-type {
+  border-radius: 8px 8px 0 0;
+}
+
+.setting-toggle:last-of-type {
+  margin-top: -1px;
+  border-radius: 0 0 8px 8px;
+}
+
+.setting-toggle input {
+  width: 19px;
+  height: 19px;
+  flex: 0 0 auto;
+  accent-color: #f3f4f6;
+  cursor: pointer;
+}
+
+.language-setting {
+  display: grid;
+  margin-top: 14px;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  color: #aaa;
+  font-size: 0.78rem;
+  text-align: left;
+}
+
+.language-setting select {
+  width: 100%;
+  min-height: 38px;
+  padding: 7px 30px 7px 10px;
+  border: 1px solid #3a3a3a;
+  border-radius: 7px;
+  background: #111;
+  color: #eee;
+  font: inherit;
+  cursor: pointer;
+}
+
+.language-setting select:focus-visible,
+.setting-toggle input:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
 }
 
 .segmented-control {
