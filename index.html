@@ -33,7 +33,7 @@
     Ative o JavaScript para jogar.
   </noscript>
 
-  <iframe id="game-frame" title="Ping Pong"></iframe>
+  <iframe id="game-frame" title="Ping Pong" allow="autoplay"></iframe>
 
   <script>
     (() => {
@@ -68,7 +68,7 @@
         frame.title = frameTitles[language][useMobileVersion ? 'mobile' : 'desktop'];
       };
 
-      frame.src = useMobileVersion ? 'ping_pong_mobile_v2.html?v=20260809-2' : 'ping_pong_desktop.html';
+      frame.src = useMobileVersion ? 'ping_pong_mobile_v2.html?v=20260809-3' : 'ping_pong_desktop.html';
       applyFrameLanguage(language);
 
       window.addEventListener('message', event => {

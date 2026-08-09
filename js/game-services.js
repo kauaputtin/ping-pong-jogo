@@ -298,10 +298,10 @@
     const firstUnlock = !audioUnlocked;
     audioUnlocked = true;
     prepareLowLatencyAudio();
+    ensureMusicPlaying();
 
     if (!firstUnlock) return;
-    if (!AudioContextConstructor) primeEffect('hit');
-    ensureMusicPlaying();
+    Object.keys(effectDefinitions).forEach(primeEffect);
   }
 
   function createLowLatencyContext() {
@@ -442,7 +442,7 @@
     saveValue(STORAGE_KEYS.sound, String(soundEnabled));
     if (soundEnabled && audioUnlocked) {
       prepareLowLatencyAudio();
-      if (!AudioContextConstructor) primeEffect('hit');
+      Object.keys(effectDefinitions).forEach(primeEffect);
     } else if (!soundEnabled) {
       lowLatencyEffectNames.forEach(stopLowLatencyEffect);
       Object.values(effectPools).flat().forEach(audio => {
@@ -479,7 +479,9 @@
     });
   }
 
+  document.addEventListener('touchstart', unlockAudio, { capture: true, passive: true });
   document.addEventListener('pointerdown', unlockAudio, { capture: true });
+  document.addEventListener('click', unlockAudio, { capture: true });
   document.addEventListener('keydown', unlockAudio, { capture: true });
   window.addEventListener('pageshow', () => {
     if (audioUnlocked) prepareLowLatencyAudio();
