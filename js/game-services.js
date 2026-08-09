@@ -280,7 +280,23 @@
   function unlockAudio() {
     if (audioUnlocked) return;
     audioUnlocked = true;
+    primeEffect('hit');
     ensureMusicPlaying();
+  }
+
+  function primeEffect(name) {
+    if (!soundEnabled || !effectPools[name]) return;
+
+    effectPools[name].forEach(audio => {
+      audio.muted = true;
+      audio.play().then(() => {
+        audio.pause();
+        audio.currentTime = 0;
+        audio.muted = false;
+      }).catch(() => {
+        audio.muted = false;
+      });
+    });
   }
 
   function setMusicEnabled(enabled) {
@@ -293,7 +309,9 @@
   function setSoundEnabled(enabled) {
     soundEnabled = Boolean(enabled);
     saveValue(STORAGE_KEYS.sound, String(soundEnabled));
-    if (!soundEnabled) {
+    if (soundEnabled && audioUnlocked) {
+      primeEffect('hit');
+    } else if (!soundEnabled) {
       Object.values(effectPools).flat().forEach(audio => {
         audio.pause();
         audio.currentTime = 0;
