@@ -237,9 +237,9 @@ h1 {
 
 #start-menu {
   display: flex;
-  width: min(300px, calc(100% - 12px));
-  height: min(430px, calc(100% - 12px));
-  padding: 18px 16px;
+  width: min(270px, calc(100% - 20px));
+  height: min(390px, calc(100% - 20px));
+  padding: 16px 14px;
   flex-direction: column;
   overflow: hidden;
   border: 1px solid #343434;
@@ -670,7 +670,7 @@ button:disabled {
 
 @media (max-width: 340px), (max-height: 600px) {
   #start-menu {
-    padding: 16px 14px;
+    padding: 14px 12px;
   }
 
   .menu-title {

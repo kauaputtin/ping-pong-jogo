@@ -24,8 +24,8 @@ const GameMobile = (() => {
   const WINNING_SCORE_STORAGE_KEY = 'ping-pong-winning-score';
   const MAX_DELTA_SECONDS = 1 / 30;
   const RALLY_SPEEDUP_EVERY_HITS = 4;
-  const RALLY_SPEEDUP_STEP = 0.05;
-  const MAX_RALLY_SPEED_MULTIPLIER = 1.25;
+  const RALLY_SPEEDUP_STEP = 0.10;
+  const MAX_RALLY_SPEED_MULTIPLIER = 2;
   const POWER_UP_MIN_SPAWN_SECONDS = 10;
   const POWER_UP_MAX_SPAWN_SECONDS = 20;
   const POWER_UP_VISIBLE_SECONDS = 8;
@@ -42,6 +42,11 @@ const GameMobile = (() => {
     PLAYING: 'PLAYING',
     PAUSED: 'PAUSED',
     GAME_OVER: 'GAME_OVER'
+  });
+
+  const CountdownMode = Object.freeze({
+    START_MATCH: 'START_MATCH',
+    RESUME_MATCH: 'RESUME_MATCH'
   });
 
   const PowerUpPhase = Object.freeze({
@@ -110,6 +115,7 @@ const GameMobile = (() => {
   let lastFrameTime = 0;
   let countdownRemaining = 0;
   let lastCountdownValue = null;
+  let countdownMode = CountdownMode.START_MATCH;
   let pixelRatio = 0;
   let resizeFrameId = null;
   let canvasRect = { left: 0, top: 0, width: 1, height: 1 };
@@ -408,6 +414,7 @@ const GameMobile = (() => {
     ball = null;
     serveAnimation = null;
     openingDropAnimation = null;
+    countdownMode = CountdownMode.START_MATCH;
     cpuTargetX = WIDTH / 2;
     cpuDecisionTimer = 0;
     resetPowerUpState();
@@ -841,9 +848,10 @@ const GameMobile = (() => {
     ctx.fill();
   }
 
-  function beginCountdown(seconds) {
+  function beginCountdown(seconds, nextMode = CountdownMode.START_MATCH) {
     countdownRemaining = seconds;
     lastCountdownValue = null;
+    countdownMode = nextMode;
     state = GameState.COUNTDOWN;
     elements.countdown.classList.remove('hidden');
     updateCountdown(0);
@@ -863,8 +871,10 @@ const GameMobile = (() => {
 
     elements.countdown.classList.add('hidden');
     elements.countdown.textContent = '';
+    const completedMode = countdownMode;
+    countdownMode = CountdownMode.START_MATCH;
     state = GameState.PLAYING;
-    beginOpeningDrop();
+    if (completedMode === CountdownMode.START_MATCH) beginOpeningDrop();
     setMessage('');
     updateControlUI();
   }
@@ -916,12 +926,12 @@ const GameMobile = (() => {
   function resumeGame() {
     if (state !== GameState.PAUSED) return;
 
+    const resumeCountdownMode = resumeState === GameState.COUNTDOWN
+      ? countdownMode
+      : CountdownMode.RESUME_MATCH;
     hidePauseMenu();
-    state = resumeState === GameState.COUNTDOWN && countdownRemaining > 0
-      ? GameState.COUNTDOWN
-      : GameState.PLAYING;
-    setMessage(state === GameState.COUNTDOWN ? 'Preparar...' : '');
-    updateControlUI();
+    beginCountdown(3, resumeCountdownMode);
+    setMessage('Preparar...');
     startLoop();
   }
 
@@ -977,6 +987,7 @@ const GameMobile = (() => {
     state = GameState.MENU;
     countdownRemaining = 0;
     lastCountdownValue = null;
+    countdownMode = CountdownMode.START_MATCH;
     clearInput();
     initMatch(true);
     hideControlGuide();

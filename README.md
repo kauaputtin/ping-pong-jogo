@@ -18,6 +18,8 @@ Também é possível abrir cada versão diretamente durante o desenvolvimento.
 
 No modo de um jogador, escolha a dificuldade e clique na mensagem central para iniciar a contagem regressiva de três segundos. Na versão mobile, as ações da partida ficam dentro do menu de pausa e o reinício exige confirmação.
 
+Ao continuar uma partida pausada no mobile, uma nova contagem de três segundos é exibida antes de a bola voltar a se mover. A velocidade da bola aumenta 10% a cada quatro rebatidas, até o limite de duas vezes a velocidade inicial, tanto no desktop quanto no mobile.
+
 ## Configurações
 
 A tela de configurações permite escolher a pontuação necessária para vencer. A dificuldade da CPU é selecionada ao entrar no modo de um jogador.
