@@ -252,10 +252,10 @@ h1 {
 
 .menu-logo {
   display: block;
-  width: clamp(40px, 12vw, 52px);
+  width: clamp(56px, 16.8vw, 72.8px);
   height: auto;
-  max-height: 52px;
-  margin: 0 auto 6px;
+  max-height: 72.8px;
+  margin: 0 auto 14px;
   object-fit: contain;
 }
 
@@ -679,9 +679,9 @@ button:disabled {
   }
 
   .menu-logo {
-    width: 40px;
-    max-height: 40px;
-    margin-bottom: 4px;
+    width: 56px;
+    max-height: 56px;
+    margin-bottom: 12px;
   }
 
 }
